@@ -1,0 +1,230 @@
+import express from 'express';
+import { createLogger } from '../utils/logger.js';
+import { projectValidator } from '../middleware/project-validator.js';
+import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
+
+const router = express.Router({ mergeParams: true });
+const logger = createLogger('tasks-router');
+
+// 项目验证中间件
+router.use(projectValidator);
+
+// 获取任务列表
+router.get('/', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { tag } = req.query;
+        
+        const project = req.project;
+        const options = {
+            tag: tag || 'main'
+        };
+        
+        const result = await req.projectManager.coreAdapter.listTasks(project.path, options);
+        
+        res.json({
+            success: true,
+            data: result,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 添加新任务
+router.post('/', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { title, description, priority = 'medium' } = req.body;
+        
+        if (!title || !description) {
+            throw new ValidationError('Title and description are required');
+        }
+        
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.addTask(
+            project.path,
+            title,
+            description,
+            priority
+        );
+        
+        res.status(201).json({
+            success: true,
+            data: result,
+            message: 'Task added successfully',
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 获取单个任务
+router.get('/:taskId', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.listTasks(project.path);
+        
+        // 查找指定任务
+        const task = result.tasks?.find(t => t.id === parseInt(taskId));
+        
+        if (!task) {
+            throw new NotFoundError(`Task ${taskId} not found in project ${projectId}`);
+        }
+        
+        res.json({
+            success: true,
+            data: task,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 更新任务
+router.put('/:taskId', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        const updates = req.body;
+        
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.updateTaskById(
+            project.path,
+            parseInt(taskId),
+            updates
+        );
+        
+        res.json({
+            success: true,
+            data: result,
+            message: `Task ${taskId} updated successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 删除任务
+router.delete('/:taskId', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.removeTask(
+            project.path,
+            parseInt(taskId)
+        );
+        
+        res.json({
+            success: true,
+            data: result,
+            message: `Task ${taskId} deleted successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 扩展任务
+router.post('/:taskId/expand', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        const { numSubtasks, useResearch } = req.body;
+        
+        const project = req.project;
+        const options = {
+            research: useResearch || false
+        };
+        
+        const result = await req.projectManager.coreAdapter.expandTask(
+            project.path,
+            parseInt(taskId),
+            numSubtasks,
+            options
+        );
+        
+        res.json({
+            success: true,
+            data: result,
+            message: `Task ${taskId} expanded successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 设置任务状态
+router.put('/:taskId/status', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        const { status } = req.body;
+        
+        if (!status) {
+            throw new ValidationError('Status is required');
+        }
+        
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.setTaskStatus(
+            project.path,
+            parseInt(taskId),
+            status
+        );
+        
+        res.json({
+            success: true,
+            data: result,
+            message: `Task ${taskId} status updated to ${status}`,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 分析任务复杂度
+router.post('/:taskId/analyze', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.analyzeTaskComplexity(
+            project.path,
+            parseInt(taskId)
+        );
+        
+        res.json({
+            success: true,
+            data: result,
+            message: `Task ${taskId} complexity analyzed`,
+            projectId,
+            requestId: req.requestId
+        });
+        
+    } catch (error) {
+        next(error);
+    }
+});
+
+export default router;
