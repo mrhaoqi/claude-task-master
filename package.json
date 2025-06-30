@@ -21,6 +21,10 @@
 		"release": "changeset publish",
 		"inspector": "npx @modelcontextprotocol/inspector node mcp-server/server.js",
 		"mcp-server": "node mcp-server/server.js",
+		"mcp-remote": "node mcp-remote/server.js",
+		"mcp-http": "MCP_HTTP_MODE=true node mcp-remote/server.js",
+		"remote-server": "node --env-file=.env server/app.js",
+		"remote-server:dev": "node --env-file=.env server/app.js",
 		"format-check": "biome format .",
 		"format": "biome format . --write"
 	},
