@@ -1,0 +1,76 @@
+{
+  "projects": {
+    "test-project": {
+      "name": "test-project",
+      "description": "",
+      "createdAt": "2025-06-30T09:27:02.990Z",
+      "lastAccessed": "2025-06-30T09:33:22.765Z",
+      "status": "active",
+      "tags": [],
+      "template": "default"
+    },
+    "demo-web-app": {
+      "name": "Demo Web Application",
+      "description": "A demo web application project for testing",
+      "template": "web-app",
+      "createdAt": "2025-06-30T10:11:28.910Z",
+      "lastAccessed": "2025-06-30T10:11:28.910Z",
+      "status": "active"
+    },
+    "mobile-demo": {
+      "name": "Mobile Demo App",
+      "description": "A demo mobile application project",
+      "template": "mobile-app",
+      "createdAt": "2025-06-30T10:14:01.241Z",
+      "lastAccessed": "2025-06-30T10:14:32.399Z",
+      "status": "active"
+    }
+  },
+  "templates": {
+    "default": {
+      "name": "Default Project Template",
+      "description": "Standard project template with basic structure",
+      "structure": {
+        "tasks": true,
+        "docs": true,
+        "reports": true
+      }
+    },
+    "web-app": {
+      "name": "Web Application Template",
+      "description": "Template for web application projects",
+      "structure": {
+        "tasks": true,
+        "docs": true,
+        "reports": true,
+        "components": true,
+        "api": true
+      }
+    },
+    "mobile-app": {
+      "name": "Mobile Application Template",
+      "description": "Template for mobile application projects",
+      "structure": {
+        "tasks": true,
+        "docs": true,
+        "reports": true,
+        "screens": true,
+        "api": true
+      }
+    }
+  },
+  "settings": {
+    "defaultTemplate": "default",
+    "autoCleanup": {
+      "enabled": false,
+      "inactiveDays": 90
+    },
+    "backup": {
+      "enabled": true,
+      "frequency": "daily",
+      "retention": 30
+    }
+  },
+  "version": "1.0.0",
+  "lastUpdated": "2025-06-30T10:14:32.399Z"
+}
