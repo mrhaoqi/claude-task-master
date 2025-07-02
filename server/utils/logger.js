@@ -35,8 +35,16 @@ class Logger {
             return;
         }
 
-        const formattedMessage = this.formatMessage(level, message, metadata);
-        
+        // 增强元数据
+        const enhancedMetadata = {
+            ...metadata,
+            pid: process.pid,
+            memory: this.getMemoryUsage(),
+            uptime: process.uptime()
+        };
+
+        const formattedMessage = this.formatMessage(level, message, enhancedMetadata);
+
         // 输出到控制台
         if (level === 'error') {
             console.error(formattedMessage);
@@ -48,6 +56,16 @@ class Logger {
 
         // 可以在这里添加文件日志记录
         // this.writeToFile(formattedMessage);
+    }
+
+    getMemoryUsage() {
+        const usage = process.memoryUsage();
+        return {
+            rss: Math.round(usage.rss / 1024 / 1024), // MB
+            heapUsed: Math.round(usage.heapUsed / 1024 / 1024), // MB
+            heapTotal: Math.round(usage.heapTotal / 1024 / 1024), // MB
+            external: Math.round(usage.external / 1024 / 1024) // MB
+        };
     }
 
     error(message, metadata = {}) {

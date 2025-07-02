@@ -1,27 +1,25 @@
 {
   "ai": {
     "main": {
-      "provider": "openai",
-      "modelId": "qwen-plus-latest",
+      "provider": "openrouter",
+      "modelId": "google/gemma-2-9b-it:free",
       "maxTokens": 8000,
       "temperature": 0.2,
-      "model": "qwen-plus-latest",
-      "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      "model": "google/gemma-2-9b-it:free"
     },
     "fallback": {
-      "provider": "openai",
-      "modelId": "qwen-plus-latest",
+      "provider": "openrouter",
+      "modelId": "google/gemma-2-9b-it:free",
       "maxTokens": 8000,
       "temperature": 0.2,
-      "model": "qwen-plus-latest",
-      "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      "model": "google/gemma-2-9b-it:free"
     },
     "research": {
-      "provider": "perplexity",
-      "modelId": "sonar-pro",
+      "provider": "openrouter",
+      "modelId": "google/gemma-2-9b-it:free",
       "maxTokens": 8700,
       "temperature": 0.1,
-      "model": "sonar-pro"
+      "model": "google/gemma-2-9b-it:free"
     }
   },
   "defaults": {

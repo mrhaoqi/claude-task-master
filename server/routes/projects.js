@@ -1,12 +1,13 @@
 import express from 'express';
 import { createLogger } from '../utils/logger.js';
+import { projectListCache } from '../middleware/response-cache.js';
 import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
 
 const router = express.Router();
 const logger = createLogger('projects-router');
 
-// 获取所有项目
-router.get('/', async (req, res, next) => {
+// 获取所有项目（带缓存）
+router.get('/', projectListCache(), async (req, res, next) => {
     try {
         const projectManager = req.projectManager;
         const projects = projectManager.listProjects();

@@ -1,5 +1,18 @@
 #!/usr/bin/env node
 
+// 加载环境变量
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// 获取项目根目录
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
+
+// 加载 .env 文件
+dotenv.config({ path: path.join(projectRoot, '.env') });
+
 import TaskMasterServer from './app.js';
 import { createLogger } from './utils/logger.js';
 
@@ -7,14 +20,38 @@ const logger = createLogger('startup');
 
 async function main() {
     try {
+        // 验证必要的环境变量
+        const requiredEnvVars = ['OPENROUTER_API_KEY'];
+        const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+        if (missingVars.length > 0) {
+            logger.warn('Missing environment variables:', missingVars);
+            logger.warn('Please check your .env file. Server will continue but some features may not work.');
+        }
+
         // 配置服务器
         const config = {
-            port: process.env.PORT || 3000,
+            port: parseInt(process.env.PORT) || 3000,
             host: process.env.HOST || '0.0.0.0',
-            projectsDir: process.env.PROJECTS_DIR || './projects'
+            projectsDir: process.env.PROJECTS_DIR || './projects',
+            nodeEnv: process.env.NODE_ENV || 'development',
+            logLevel: process.env.LOG_LEVEL || 'info',
+            debug: process.env.DEBUG === 'true'
         };
 
-        logger.info('Starting TaskMaster Remote Server...', config);
+        // 设置日志级别
+        if (config.logLevel) {
+            logger.level = config.logLevel;
+        }
+
+        logger.info('Starting TaskMaster Remote Server...', {
+            port: config.port,
+            host: config.host,
+            projectsDir: config.projectsDir,
+            nodeEnv: config.nodeEnv,
+            logLevel: config.logLevel,
+            debug: config.debug
+        });
 
         // 创建并启动服务器
         const server = new TaskMasterServer(config);

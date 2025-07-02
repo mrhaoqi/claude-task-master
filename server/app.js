@@ -14,6 +14,9 @@ import taskRoutes from './routes/tasks.js';
 import prdRoutes from './routes/prd.js';
 import fileRoutes from './routes/files.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { getLockStatus } from './middleware/file-lock.js';
+import { performanceMonitor, getPerformanceStatsHandler, resetPerformanceStatsHandler, healthCheckHandler } from './middleware/performance-monitor.js';
+import { getCacheStatsHandler, clearCacheHandler } from './middleware/response-cache.js';
 import { createLogger } from './utils/logger.js';
 import ProjectManager from './utils/project-manager.js';
 
@@ -48,11 +51,19 @@ class TaskMasterServer {
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true }));
 
+        // 性能监控中间件
+        this.app.use(performanceMonitor({
+            logSlowRequests: true,
+            slowRequestThreshold: 2000, // 2秒
+            logAllRequests: false,
+            collectMetrics: true
+        }));
+
         // 请求ID和日志
         this.app.use((req, res, next) => {
             req.requestId = uuidv4();
             req.projectManager = this.projectManager;
-            
+
             logger.info(`${req.method} ${req.path}`, {
                 requestId: req.requestId,
                 ip: req.ip,
@@ -63,21 +74,26 @@ class TaskMasterServer {
     }
 
     setupRoutes() {
-        // 健康检查
-        this.app.get('/health', (req, res) => {
-            res.json({
-                status: 'healthy',
-                timestamp: new Date().toISOString(),
-                uptime: process.uptime(),
-                projects: this.projectManager.getProjectCount()
-            });
-        });
+        // 健康检查（增强版）
+        this.app.get('/health', healthCheckHandler);
 
         // API路由
         this.app.use('/api/projects', projectRoutes);
         this.app.use('/api/projects/:projectId/tasks', taskRoutes);
         this.app.use('/api/projects/:projectId/prd', prdRoutes);
         this.app.use('/api/projects/:projectId/files', fileRoutes);
+
+        // 锁状态查询
+        this.app.get('/api/locks', getLockStatus);
+        this.app.get('/api/projects/:projectId/locks', getLockStatus);
+
+        // 性能统计
+        this.app.get('/api/stats', getPerformanceStatsHandler);
+        this.app.post('/api/stats/reset', resetPerformanceStatsHandler);
+
+        // 缓存管理
+        this.app.get('/api/cache', getCacheStatsHandler);
+        this.app.delete('/api/cache', clearCacheHandler);
 
         // 根路径
         this.app.get('/', (req, res) => {

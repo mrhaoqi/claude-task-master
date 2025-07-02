@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createLogger } from '../utils/logger.js';
+import { getCacheManager } from '../utils/cache-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,13 +10,18 @@ const __dirname = path.dirname(__filename);
 class ConfigManager {
   constructor() {
     this.logger = createLogger('config-manager');
+    this.cache = getCacheManager();
     this.configDir = path.resolve(__dirname, '../../config');
+    this.projectsDir = path.resolve(__dirname, '../../projects');
     this.globalConfigPath = path.join(this.configDir, 'global-config.json');
-    this.projectsConfigPath = path.join(this.configDir, 'projects.json');
-    
+    this.projectsConfigPath = path.join(this.projectsDir, '.registry', 'projects.json');
+    this.templatesConfigPath = path.join(this.projectsDir, '.registry', 'templates.json');
+    this.cachePrefix = 'config:';
+    this.cacheTTL = 300000; // 5分钟缓存
+
     this.globalConfig = null;
     this.projectsConfig = null;
-    this.configCache = new Map();
+    this.configCache = new Map(); // 保留原有缓存作为备用
   }
 
   /**

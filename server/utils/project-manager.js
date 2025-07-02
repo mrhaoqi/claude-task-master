@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createLogger } from './logger.js';
+import { getCacheManager } from './cache-manager.js';
 import ConfigManager from '../services/config-manager.js';
 import CoreAdapter from '../services/core-adapter.js';
 
@@ -8,9 +9,12 @@ class ProjectManager {
     constructor(projectsDir) {
         this.projectsDir = projectsDir;
         this.logger = createLogger('project-manager');
+        this.cache = getCacheManager();
         this.projects = new Map();
         this.configManager = new ConfigManager();
         this.coreAdapter = new CoreAdapter();
+        this.cachePrefix = 'project:';
+        this.cacheTTL = 600000; // 10分钟缓存
     }
 
     async init() {

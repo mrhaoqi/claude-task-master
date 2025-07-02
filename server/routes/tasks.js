@@ -1,6 +1,8 @@
 import express from 'express';
 import { createLogger } from '../utils/logger.js';
 import { projectValidator } from '../middleware/project-validator.js';
+import { taskFileLockMiddleware } from '../middleware/file-lock.js';
+import { taskListCache } from '../middleware/response-cache.js';
 import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
 
 const router = express.Router({ mergeParams: true });
@@ -9,8 +11,11 @@ const logger = createLogger('tasks-router');
 // 项目验证中间件
 router.use(projectValidator);
 
-// 获取任务列表
-router.get('/', async (req, res, next) => {
+// 文件锁中间件（用于写操作）
+router.use(taskFileLockMiddleware());
+
+// 获取任务列表（带缓存）
+router.get('/', taskListCache(), async (req, res, next) => {
     try {
         const { projectId } = req.params;
         const { tag } = req.query;
@@ -38,20 +43,25 @@ router.get('/', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
     try {
         const { projectId } = req.params;
-        const { title, description, priority = 'medium' } = req.body;
-        
+        const { title, description, priority = 'medium', useManualData = false } = req.body;
+
         if (!title || !description) {
             throw new ValidationError('Title and description are required');
         }
-        
+
         const project = req.project;
+        const options = {
+            useManualData: useManualData  // 默认使用AI生成，可通过参数覆盖
+        };
+
         const result = await req.projectManager.coreAdapter.addTask(
             project.path,
             title,
             description,
-            priority
+            priority,
+            options
         );
-        
+
         res.status(201).json({
             success: true,
             data: result,
@@ -59,7 +69,7 @@ router.post('/', async (req, res, next) => {
             projectId,
             requestId: req.requestId
         });
-        
+
     } catch (error) {
         next(error);
     }
@@ -155,7 +165,7 @@ router.post('/:taskId/expand', async (req, res, next) => {
         
         const result = await req.projectManager.coreAdapter.expandTask(
             project.path,
-            parseInt(taskId),
+            taskId,  // 传递字符串，让原始脚本自己处理parseInt
             numSubtasks,
             options
         );

@@ -4,6 +4,7 @@ import path from 'path';
 import { createLogger } from '../utils/logger.js';
 import CoreAdapter from '../services/core-adapter.js';
 import { projectValidator } from '../middleware/project-validator.js';
+import { prdFileLockMiddleware } from '../middleware/file-lock.js';
 import { ValidationError } from '../middleware/error-handler.js';
 
 const router = express.Router({ mergeParams: true });
@@ -12,6 +13,9 @@ const coreAdapter = new CoreAdapter();
 
 // 项目验证中间件
 router.use(projectValidator);
+
+// 解析PRD时需要文件锁
+router.use('/parse', prdFileLockMiddleware());
 
 // 解析PRD生成任务
 router.post('/parse', async (req, res, next) => {
