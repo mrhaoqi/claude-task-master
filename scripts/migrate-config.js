@@ -6,7 +6,7 @@
 // 📋 具体功能
 // 配置结构迁移
 // 从旧的项目级配置（ .taskmaster/config.json）迁移到全局配置
-// 创建新的 config/global-config.json和 config/projects.json
+// 创建新的 config/global-config.json和 projects/.registry/projects.json
 // 项目发现与注册
 // 扫描 projects/目录下的所有现有项目
 // 自动将发现的项目注册到新的配置系统中
@@ -33,8 +33,10 @@ class ConfigMigration {
   constructor() {
     this.projectsDir = path.resolve(__dirname, '../projects');
     this.configDir = path.resolve(__dirname, '../config');
+    this.projectsRegistryDir = path.resolve(__dirname, '../projects/.registry');
     this.globalConfigPath = path.join(this.configDir, 'global-config.json');
-    this.projectsConfigPath = path.join(this.configDir, 'projects.json');
+    this.projectsConfigPath = path.join(this.projectsRegistryDir, 'projects.json');
+    this.templatesConfigPath = path.join(this.projectsRegistryDir, 'templates.json');
   }
 
   async migrate() {
@@ -43,6 +45,7 @@ class ConfigMigration {
     try {
       // 1. 确保新配置目录存在
       await this.ensureConfigDirectory();
+      await this.ensureProjectsRegistryDirectory();
 
       // 2. 创建全局配置（如果不存在）
       await this.createGlobalConfig();
@@ -50,8 +53,9 @@ class ConfigMigration {
       // 3. 扫描现有项目并迁移配置
       const projects = await this.scanExistingProjects();
       
-      // 4. 创建项目注册表
+      // 4. 创建项目注册表和模板配置
       await this.createProjectsConfig(projects);
+      await this.createTemplatesConfig();
 
       // 5. 清理旧的项目配置文件
       await this.cleanupOldConfigs(projects);
@@ -72,6 +76,16 @@ class ConfigMigration {
     } catch (error) {
       await fs.mkdir(this.configDir, { recursive: true });
       console.log('📁 Created config directory');
+    }
+  }
+
+  async ensureProjectsRegistryDirectory() {
+    try {
+      await fs.access(this.projectsRegistryDir);
+      console.log('📁 Projects registry directory already exists');
+    } catch (error) {
+      await fs.mkdir(this.projectsRegistryDir, { recursive: true });
+      console.log('📁 Created projects registry directory');
     }
   }
 
@@ -222,6 +236,33 @@ class ConfigMigration {
   async createProjectsConfig(projects) {
     const projectsConfig = {
       projects: {},
+      metadata: {
+        totalProjects: projects.length,
+        activeProjects: projects.filter(p => p.status === 'active').length,
+        version: "1.0.0",
+        lastUpdated: new Date().toISOString()
+      }
+    };
+
+    // 添加所有项目到注册表
+    for (const project of projects) {
+      projectsConfig.projects[project.id] = {
+        name: project.name,
+        description: project.description,
+        createdAt: project.createdAt,
+        lastAccessed: project.lastAccessed,
+        status: project.status,
+        tags: project.tags,
+        template: project.template
+      };
+    }
+
+    await fs.writeFile(this.projectsConfigPath, JSON.stringify(projectsConfig, null, 2));
+    console.log('📋 Created projects config');
+  }
+
+  async createTemplatesConfig() {
+    const templatesConfig = {
       templates: {
         default: {
           name: "Default Project Template",
@@ -256,36 +297,14 @@ class ConfigMigration {
         }
       },
       settings: {
-        defaultTemplate: "default",
-        autoCleanup: {
-          enabled: false,
-          inactiveDays: 90
-        },
-        backup: {
-          enabled: true,
-          frequency: "daily",
-          retention: 30
-        }
+        defaultTemplate: "default"
       },
       version: "1.0.0",
       lastUpdated: new Date().toISOString()
     };
 
-    // 添加所有项目到注册表
-    for (const project of projects) {
-      projectsConfig.projects[project.id] = {
-        name: project.name,
-        description: project.description,
-        createdAt: project.createdAt,
-        lastAccessed: project.lastAccessed,
-        status: project.status,
-        tags: project.tags,
-        template: project.template
-      };
-    }
-
-    await fs.writeFile(this.projectsConfigPath, JSON.stringify(projectsConfig, null, 2));
-    console.log('📋 Created projects config');
+    await fs.writeFile(this.templatesConfigPath, JSON.stringify(templatesConfig, null, 2));
+    console.log('📋 Created templates config');
   }
 
   async cleanupOldConfigs(projects) {
