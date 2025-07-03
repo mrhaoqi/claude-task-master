@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  claude-task-master:
+    build: .
+    container_name: claude-task-master-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./projects:/app/projects
+      - ./logs:/app/logs
+      - ./config:/app/config
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - redis
+    networks:
+      - claude-task-master-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: claude-task-master-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - claude-task-master-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: claude-task-master-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - claude-task-master
+    restart: unless-stopped
+    networks:
+      - claude-task-master-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  claude-task-master-network:
+    driver: bridge
