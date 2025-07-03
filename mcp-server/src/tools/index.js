@@ -37,6 +37,10 @@ import { registerRenameTagTool } from './rename-tag.js';
 import { registerCopyTagTool } from './copy-tag.js';
 import { registerResearchTool } from './research.js';
 import { registerRulesTool } from './rules.js';
+import { registerSyncReadmeTool } from './sync-readme.js';
+import { registerHelpTool } from './help.js';
+import { registerGetOperationStatusTool } from './get-operation-status.js';
+import { registerMigrateTool } from './migrate.js';
 
 /**
  * Register all Task Master tools with the MCP server
@@ -51,6 +55,7 @@ export function registerTaskMasterTools(server) {
 		registerModelsTool(server);
 		registerRulesTool(server);
 		registerParsePRDTool(server);
+		registerMigrateTool(server);
 
 		// Group 2: Task Analysis & Expansion
 		registerAnalyzeProjectComplexityTool(server);
@@ -94,6 +99,13 @@ export function registerTaskMasterTools(server) {
 
 		// Group 8: Research Features
 		registerResearchTool(server);
+
+		// Group 9: Documentation & Help
+		registerSyncReadmeTool(server);
+		registerHelpTool(server);
+
+		// Group 10: Operations & Status
+		registerGetOperationStatusTool(server);
 	} catch (error) {
 		logger.error(`Error registering Task Master tools: ${error.message}`);
 		throw error;
