@@ -65,10 +65,29 @@ class TaskMasterServer {
             req.requestId = uuidv4();
             req.projectManager = this.projectManager;
 
+            // 开发模式下打印详细的请求信息
+            if (process.env.NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug') {
+                const projectId = req.headers['x-project'];
+                const username = req.headers['x-username'];
+                const password = req.headers['x-password'];
+
+                if (projectId || username || password) {
+                    console.log('🔍 [Express API] 接收到的请求头:');
+                    console.log(`  📁 X-PROJECT: ${projectId || '(未设置)'}`);
+                    console.log(`  👤 X-USERNAME: ${username || '(未设置)'}`);
+                    console.log(`  🔐 X-PASSWORD: ${password ? '***' : '(未设置)'}`);
+                    console.log(`  📍 请求路径: ${req.method} ${req.path}`);
+                    console.log(`  🆔 请求ID: ${req.requestId}`);
+                    console.log('');
+                }
+            }
+
             logger.info(`${req.method} ${req.path}`, {
                 requestId: req.requestId,
                 ip: req.ip,
-                userAgent: req.get('User-Agent')
+                userAgent: req.get('User-Agent'),
+                projectId: req.headers['x-project'],
+                username: req.headers['x-username']
             });
             next();
         });

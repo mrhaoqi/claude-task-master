@@ -65,18 +65,31 @@ class TaskMasterRemoteMCPServer {
     const username = req.headers['x-username'];
     const password = req.headers['x-password'];
 
-    // 简单的认证逻辑（实际项目中应该更严格）
+    // 开发模式下打印header参数
+    if (process.env.NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug') {
+      console.log('🔍 [MCP Remote] 接收到的请求头:');
+      console.log(`  📁 X-PROJECT: ${projectId || '(未设置)'}`);
+      console.log(`  👤 X-USERNAME: ${username || '(未设置)'}`);
+      console.log(`  🔐 X-PASSWORD: ${password ? '***' : '(未设置)'}`);
+      console.log(`  🌐 User-Agent: ${req.headers['user-agent'] || '(未设置)'}`);
+      console.log(`  📍 请求路径: ${req.method} ${req.path}`);
+      console.log('');
+    }
+
+    // 项目ID是必需的
     if (!projectId) {
       return res.status(400).json({ error: 'X-PROJECT header is required' });
     }
 
-    if (!username || !password) {
-      return res.status(401).json({ error: 'X-USERNAME and X-PASSWORD headers are required' });
+    // 用户名和密码在开发模式下是可选的
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    if (!isDevelopment && (!username || !password)) {
+      return res.status(401).json({ error: 'X-USERNAME and X-PASSWORD headers are required in production mode' });
     }
 
-    // 将项目ID附加到请求对象
+    // 将项目信息附加到请求对象
     req.projectId = projectId;
-    req.username = username;
+    req.username = username || 'anonymous';
 
     next();
   }

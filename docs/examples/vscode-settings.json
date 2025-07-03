@@ -6,7 +6,7 @@
         "mcp-remote",
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "${workspaceFolderBasename}"
       }
     }

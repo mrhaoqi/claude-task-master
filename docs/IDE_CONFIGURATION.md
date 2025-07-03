@@ -52,7 +52,7 @@ curl http://localhost:3000/health
         "mcp-remote",
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "my-project",
         "X-USERNAME": "your-username"
       }
@@ -85,7 +85,7 @@ curl http://localhost:3000/health
           "mcp-remote", 
           "http://localhost:3000/mcp"
         ],
-        "env": {
+        "headers": {
           "X-PROJECT": "my-project"
         }
       }
@@ -113,7 +113,7 @@ curl http://localhost:3000/health
         "mcp-remote",
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "my-project"
       }
     }
@@ -159,14 +159,14 @@ curl http://localhost:3000/health
     "project-a": {
       "command": "npx",
       "args": ["mcp-remote", "http://localhost:3000/mcp"],
-      "env": {
+      "headers": {
         "X-PROJECT": "project-a"
       }
     },
     "project-b": {
       "command": "npx",
       "args": ["mcp-remote", "http://localhost:3000/mcp"],
-      "env": {
+      "headers": {
         "X-PROJECT": "project-b"
       }
     }
@@ -176,11 +176,13 @@ curl http://localhost:3000/health
 
 ### 2. 环境变量配置
 
-支持的环境变量：
+支持的请求头：
 
 - `X-PROJECT`: 项目ID（必需）
-- `X-USERNAME`: 用户名（可选）
-- `X-PASSWORD`: 密码（可选，用于认证）
+- `X-USERNAME`: 用户名（可选，开发模式下可省略）
+- `X-PASSWORD`: 密码（生产模式必需，开发模式可省略）
+
+**注意**: 在开发模式下（NODE_ENV=development），用户名和密码是可选的，系统会在控制台打印接收到的请求头信息以便调试。
 
 ### 3. 工作区配置
 
@@ -195,7 +197,7 @@ curl http://localhost:3000/health
         "mcp-remote",
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "${workspaceFolderBasename}"
       }
     }

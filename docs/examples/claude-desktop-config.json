@@ -6,7 +6,7 @@
         "mcp-remote",
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "my-project",
         "X-USERNAME": "developer"
       }
@@ -17,7 +17,7 @@
         "mcp-remote",
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "project-a",
         "X-USERNAME": "team-lead"
       }
@@ -28,7 +28,7 @@
         "mcp-remote", 
         "http://localhost:3000/mcp"
       ],
-      "env": {
+      "headers": {
         "X-PROJECT": "project-b",
         "X-USERNAME": "developer"
       }
