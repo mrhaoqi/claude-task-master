@@ -54,7 +54,8 @@ curl http://localhost:3000/health
       ],
       "headers": {
         "X-PROJECT": "my-project",
-        "X-USERNAME": "your-username"
+        "X-USERNAME": "your-username",
+        "X-PASSWORD": "your-password"
       }
     }
   }
