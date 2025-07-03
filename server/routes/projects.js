@@ -153,21 +153,69 @@ router.put('/:projectId', async (req, res, next) => {
     }
 });
 
+// 初始化项目（用于MCP工具）
+router.post('/:projectId/initialize', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { force = false } = req.body;
+
+        const projectManager = req.projectManager;
+
+        // 检查项目是否已存在
+        const exists = projectManager.projectExists(projectId);
+        if (exists && !force) {
+            return res.json({
+                success: true,
+                data: {
+                    initialized: false,
+                    message: 'Project already exists'
+                },
+                message: `Project ${projectId} already initialized`,
+                requestId: req.requestId
+            });
+        }
+
+        // 创建或重新初始化项目
+        const { name, description, template } = req.body;
+        const project = await projectManager.ensureProject(
+            projectId,
+            name || projectId,
+            description || '',
+            template || 'default'
+        );
+
+        res.json({
+            success: true,
+            data: {
+                id: project.id,
+                initialized: true,
+                path: project.path,
+                config: project.config
+            },
+            message: `Project ${projectId} initialized successfully`,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // 删除项目
 router.delete('/:projectId', async (req, res, next) => {
     try {
         const { projectId } = req.params;
         const projectManager = req.projectManager;
-        
+
         await projectManager.deleteProject(projectId);
-        
+
         res.json({
             success: true,
             data: { deleted: true },
             message: `Project ${projectId} deleted successfully`,
             requestId: req.requestId
         });
-        
+
     } catch (error) {
         if (error.message.includes('not found')) {
             next(new NotFoundError(error.message));

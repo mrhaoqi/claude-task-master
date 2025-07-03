@@ -192,7 +192,23 @@ class ProjectManager {
 
     async initializeProjectData(projectPath, template) {
         const taskmasterPath = path.join(projectPath, '.taskmaster');
-        
+
+        // 初始化配置文件（兼容原始脚本）
+        const globalConfig = this.configManager.getGlobalConfig();
+        const legacyConfig = {
+            ai: globalConfig.ai || {},
+            project: {
+                name: path.basename(projectPath),
+                description: '',
+                template: template || 'default'
+            },
+            features: globalConfig.features || {},
+            logging: globalConfig.logging || {}
+        };
+
+        const configPath = path.join(taskmasterPath, 'config.json');
+        await fs.writeFile(configPath, JSON.stringify(legacyConfig, null, 2));
+
         // 初始化空的任务文件
         const tasksData = {
             main: {
@@ -203,7 +219,7 @@ class ProjectManager {
                 }
             }
         };
-        
+
         const tasksPath = path.join(taskmasterPath, 'tasks', 'tasks.json');
         await fs.writeFile(tasksPath, JSON.stringify(tasksData, null, 2));
 
@@ -218,7 +234,7 @@ class ProjectManager {
                 lastTaskId: 0
             }
         };
-        
+
         const statePath = path.join(taskmasterPath, 'state.json');
         await fs.writeFile(statePath, JSON.stringify(stateData, null, 2));
 
@@ -276,7 +292,7 @@ class ProjectManager {
         }
     }
 
-    async ensureProject(projectId) {
+    async ensureProject(projectId, name = null, description = '', template = 'default') {
         if (!this.projects.has(projectId)) {
             // 尝试从磁盘加载项目
             try {
@@ -284,14 +300,16 @@ class ProjectManager {
                 this.projects.set(projectId, project);
                 this.logger.info(`Loaded project from disk: ${projectId}`);
             } catch (error) {
-                throw new Error(`Project ${projectId} not found`);
+                // 项目不存在，创建新项目
+                this.logger.info(`Project ${projectId} not found, creating new project`);
+                return await this.createProject(projectId, name || projectId, description, template);
             }
         }
 
         // 更新最后访问时间
         const project = this.projects.get(projectId);
         project.lastAccessed = new Date().toISOString();
-        
+
         return project;
     }
 
@@ -357,6 +375,10 @@ class ProjectManager {
 
     getProjectCount() {
         return this.projects.size;
+    }
+
+    projectExists(projectId) {
+        return this.projects.has(projectId);
     }
 
     isValidProjectId(projectId) {

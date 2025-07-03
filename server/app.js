@@ -13,6 +13,7 @@ import projectRoutes from './routes/projects.js';
 import taskRoutes from './routes/tasks.js';
 import prdRoutes from './routes/prd.js';
 import fileRoutes from './routes/files.js';
+import globalRoutes from './routes/global.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { getLockStatus } from './middleware/file-lock.js';
 import { performanceMonitor, getPerformanceStatsHandler, resetPerformanceStatsHandler, healthCheckHandler } from './middleware/performance-monitor.js';
@@ -78,6 +79,7 @@ class TaskMasterServer {
         this.app.get('/health', healthCheckHandler);
 
         // API路由
+        this.app.use('/api', globalRoutes);
         this.app.use('/api/projects', projectRoutes);
         this.app.use('/api/projects/:projectId/tasks', taskRoutes);
         this.app.use('/api/projects/:projectId/prd', prdRoutes);
