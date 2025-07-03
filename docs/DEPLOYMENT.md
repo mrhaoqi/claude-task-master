@@ -72,14 +72,51 @@ npm test
 
 ### 6. 启动服务
 
-#### 开发模式
+#### 快速启动 (推荐)
 ```bash
+# 生产模式
+npm start
+
+# 开发模式
 npm run dev
+
+# 启动所有服务
+npm run start:all
+
+# 开发模式启动所有服务
+npm run dev:all
 ```
 
-#### 生产模式
+#### 使用部署脚本
 ```bash
-npm start
+# 使用npm脚本 (推荐)
+npm run deploy:start    # 启动所有服务
+npm run deploy:dev      # 开发模式
+npm run deploy:stop     # 停止服务
+npm run deploy:status   # 查看状态
+
+# 或直接使用脚本
+./deployment/scripts/start-services.sh start
+./deployment/scripts/start-services.sh dev
+./deployment/scripts/start-services.sh stop
+./deployment/scripts/start-services.sh status
+./deployment/scripts/start-services.sh restart
+```
+
+#### 单独启动服务
+```bash
+# Express API 服务器
+npm run server:prod        # 生产模式
+npm run server:dev         # 开发模式
+
+# MCP 服务器
+npm run mcp-server
+
+# 远程 MCP 服务器
+npm run mcp-remote
+
+# HTTP 模式的 MCP 服务器
+npm run mcp-http
 ```
 
 ## Docker 部署
