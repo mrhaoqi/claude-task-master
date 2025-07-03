@@ -1,0 +1,27 @@
+{
+  "models": {
+    "main": {
+      "provider": "openrouter",
+      "modelId": "deepseek/deepseek-r1-0528:free",
+      "apiKey": "${OPENROUTER_API_KEY}",
+      "baseURL": "https://openrouter.ai/api/v1"
+    },
+    "research": {
+      "provider": "openrouter", 
+      "modelId": "deepseek/deepseek-r1-0528:free",
+      "apiKey": "${OPENROUTER_API_KEY}",
+      "baseURL": "https://openrouter.ai/api/v1"
+    },
+    "fallback": {
+      "provider": "openrouter",
+      "modelId": "deepseek/deepseek-chat-v3-0324:free",
+      "apiKey": "${OPENROUTER_API_KEY}",
+      "baseURL": "https://openrouter.ai/api/v1"
+    }
+  },
+  "global": {
+    "userId": "claude-task-master-user",
+    "logLevel": "info",
+    "debug": false
+  }
+}
