@@ -46,7 +46,18 @@
 		"deploy:dev": "chmod +x deployment/scripts/start-services.sh && deployment/scripts/start-services.sh dev",
 		"deploy:stop": "chmod +x deployment/scripts/start-services.sh && deployment/scripts/start-services.sh stop",
 		"deploy:status": "chmod +x deployment/scripts/start-services.sh && deployment/scripts/start-services.sh status",
-		"health-check": "curl -f http://localhost:3000/health || exit 1"
+		"health-check": "curl -f http://localhost:3000/health || exit 1",
+		"docker:build": "docker-compose build",
+		"docker:up": "docker-compose up -d",
+		"docker:down": "docker-compose down",
+		"docker:logs": "docker-compose logs -f",
+		"docker:deploy": "chmod +x deployment/scripts/deploy.sh && deployment/scripts/deploy.sh",
+		"docker:deploy:dev": "chmod +x deployment/scripts/deploy.sh && deployment/scripts/deploy.sh development",
+		"docker:deploy:nginx": "chmod +x deployment/scripts/deploy.sh && deployment/scripts/deploy.sh production true",
+		"docker:stop": "chmod +x deployment/scripts/stop.sh && deployment/scripts/stop.sh",
+		"docker:clean": "chmod +x deployment/scripts/stop.sh && deployment/scripts/stop.sh production true true",
+		"perf:test": "node scripts/performance/concurrency-test.js",
+		"perf:analyze": "echo 'Performance analysis tools - see docs/CONCURRENCY_ANALYSIS.md'"
 	},
 	"keywords": [
 		"claude",
