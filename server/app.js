@@ -14,6 +14,8 @@ import taskRoutes from './routes/tasks.js';
 import prdRoutes from './routes/prd.js';
 import fileRoutes from './routes/files.js';
 import globalRoutes from './routes/global.js';
+import mcpRoutes from './routes/mcp.js';
+
 import { errorHandler } from './middleware/error-handler.js';
 import { getLockStatus } from './middleware/file-lock.js';
 import { performanceMonitor, getPerformanceStatsHandler, resetPerformanceStatsHandler, healthCheckHandler } from './middleware/performance-monitor.js';
@@ -96,6 +98,11 @@ class TaskMasterServer {
     setupRoutes() {
         // 健康检查（增强版）
         this.app.get('/health', healthCheckHandler);
+
+
+
+        // MCP路由 - 必须在API路由之前
+        this.app.use('/mcp', mcpRoutes);
 
         // API路由
         this.app.use('/api', globalRoutes);
