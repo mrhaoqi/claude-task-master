@@ -15,6 +15,7 @@ import prdRoutes from './routes/prd.js';
 import fileRoutes from './routes/files.js';
 import globalRoutes from './routes/global.js';
 import mcpRoutes from './routes/mcp.js';
+import scopeManagementRoutes from './routes/scope-management.js';
 
 import { errorHandler } from './middleware/error-handler.js';
 import { getLockStatus } from './middleware/file-lock.js';
@@ -110,6 +111,7 @@ class TaskMasterServer {
         this.app.use('/api/projects/:projectId/tasks', taskRoutes);
         this.app.use('/api/projects/:projectId/prd', prdRoutes);
         this.app.use('/api/projects/:projectId/files', fileRoutes);
+        this.app.use('/api/projects/:projectId/scope', scopeManagementRoutes);
 
         // 锁状态查询
         this.app.get('/api/locks', getLockStatus);

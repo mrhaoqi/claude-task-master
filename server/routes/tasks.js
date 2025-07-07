@@ -2,11 +2,14 @@ import express from 'express';
 import { createLogger } from '../utils/logger.js';
 import { projectValidator } from '../middleware/project-validator.js';
 import { taskFileLockMiddleware } from '../middleware/file-lock.js';
+import { scopeCheckMiddlewares } from '../middleware/scope-check.js';
 import { taskListCache } from '../middleware/response-cache.js';
 import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
+import TaskEnhancementService from '../services/task-enhancement.js';
 
 const router = express.Router({ mergeParams: true });
 const logger = createLogger('tasks-router');
+const taskEnhancement = new TaskEnhancementService();
 
 // 项目验证中间件
 router.use(projectValidator);
@@ -26,10 +29,17 @@ router.get('/', taskListCache(), async (req, res, next) => {
         };
         
         const result = await req.projectManager.coreAdapter.listTasks(project.path, options);
-        
+
+        // 增强任务数据，添加PRD范围信息（不修改原始数据）
+        let enhancedTasks = result;
+        if (result && Array.isArray(result.tasks)) {
+            const enhanced = await taskEnhancement.enhanceTaskList(project.path, result.tasks);
+            enhancedTasks = { ...result, tasks: enhanced };
+        }
+
         res.json({
             success: true,
-            data: result,
+            data: enhancedTasks,
             projectId,
             requestId: req.requestId
         });
@@ -40,7 +50,7 @@ router.get('/', taskListCache(), async (req, res, next) => {
 });
 
 // 添加新任务
-router.post('/', async (req, res, next) => {
+router.post('/', scopeCheckMiddlewares.addTask, async (req, res, next) => {
     try {
         const { projectId } = req.params;
         const { title, description, priority = 'medium', useManualData = false } = req.body;
@@ -153,7 +163,7 @@ router.delete('/:taskId', async (req, res, next) => {
 });
 
 // 扩展任务
-router.post('/:taskId/expand', async (req, res, next) => {
+router.post('/:taskId/expand', scopeCheckMiddlewares.expandTask, async (req, res, next) => {
     try {
         const { projectId, taskId } = req.params;
         const { numSubtasks, useResearch } = req.body;
