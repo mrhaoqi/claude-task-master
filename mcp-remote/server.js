@@ -49,7 +49,13 @@ class TaskMasterRemoteMCPServer {
     this.app.use('/mcp', this.authenticateRequest.bind(this));
 
     // MCP端点
-    this.app.post('/mcp', this.handleMcpRequest.bind(this));
+    this.app.post('/mcp', (req, res, next) => {
+      // 设置必要的HTTP头
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'close');
+      next();
+    }, this.handleMcpRequest.bind(this));
 
     // 健康检查
     this.app.get('/health', (_req, res) => {
@@ -101,16 +107,77 @@ class TaskMasterRemoteMCPServer {
     try {
       const mcpRequest = req.body;
 
+      // 详细的请求日志
+      console.log(`\n=== MCP Request Details ===`);
+      console.log(`Method: ${mcpRequest.method}`);
+      console.log(`ID: ${mcpRequest.id}`);
+      console.log(`Project: ${req.projectId}`);
+      console.log(`Username: ${req.username}`);
+      console.log(`JSONRPC Version: ${mcpRequest.jsonrpc}`);
+
+      if (mcpRequest.params) {
+        console.log(`Params:`, JSON.stringify(mcpRequest.params, null, 2));
+        if (mcpRequest.params.protocolVersion) {
+          console.log(`Client Protocol Version: ${mcpRequest.params.protocolVersion}`);
+        }
+        if (mcpRequest.params.clientInfo) {
+          console.log(`Client Info:`, JSON.stringify(mcpRequest.params.clientInfo, null, 2));
+        }
+      }
+      console.log(`Request Headers:`, JSON.stringify(req.headers, null, 2));
+      console.log(`========================\n`);
+
       // 临时设置项目ID用于API调用
       const originalProjectId = this.projectId;
       this.projectId = req.projectId;
 
-      let response;
+      let result;
 
-      if (mcpRequest.method === 'tools/list') {
-        response = await this.getToolsList();
+      if (mcpRequest.method === 'initialize') {
+        // MCP初始化请求 - 支持协议版本协商
+        const clientVersion = mcpRequest.params?.protocolVersion;
+        const supportedVersions = ["2024-11-05", "2025-03-26"];
+
+        // 正确的协议协商：优先使用客户端版本，如果不支持则使用最新的我们支持的版本
+        const negotiatedVersion = supportedVersions.includes(clientVersion)
+          ? clientVersion
+          : supportedVersions[supportedVersions.length - 1];
+
+        console.log(`Protocol negotiation: Client requested ${clientVersion}, using ${negotiatedVersion}`);
+
+        result = {
+          protocolVersion: negotiatedVersion,
+          capabilities: {
+            logging: {},
+            tools: {
+              listChanged: true
+            },
+            resources: {
+              subscribe: false,
+              listChanged: false
+            },
+            prompts: {
+              listChanged: false
+            },
+            completions: {}
+          },
+          serverInfo: {
+            name: "taskmaster-remote",
+            version: "1.0.0"
+          },
+          instructions: `TaskMaster Remote MCP Server for project: ${req.projectId}. Provides task management tools for AI-driven project development.`
+        };
+      } else if (mcpRequest.method === 'notifications/initialized') {
+        // MCP初始化完成通知 - 这是一个通知，不需要响应
+        console.log(`MCP client initialized for project: ${req.projectId}`);
+
+        // 对于通知，我们不返回result，直接返回空响应
+        res.status(200).end();
+        return;
+      } else if (mcpRequest.method === 'tools/list') {
+        result = await this.getToolsList();
       } else if (mcpRequest.method === 'tools/call') {
-        response = await this.handleToolCall(mcpRequest.params);
+        result = await this.handleToolCall(mcpRequest.params);
       } else {
         throw new Error(`Unsupported method: ${mcpRequest.method}`);
       }
@@ -118,14 +185,48 @@ class TaskMasterRemoteMCPServer {
       // 恢复原始项目ID
       this.projectId = originalProjectId;
 
+      // 构建符合JSON-RPC标准的响应 - 必须使用客户端的请求ID
+      const response = {
+        jsonrpc: "2.0",
+        id: mcpRequest.id, // 严格使用客户端的ID，不能有默认值
+        result: result
+      };
+
+      // 详细的响应日志
+      console.log(`\n=== MCP Response Details ===`);
+      console.log(`Method: ${mcpRequest.method}`);
+      console.log(`Response ID: ${response.id}`);
+      console.log(`Response Size: ${JSON.stringify(response).length} characters`);
+
+      if (mcpRequest.method === 'initialize') {
+        console.log(`Negotiated Protocol Version: ${response.result.protocolVersion}`);
+        console.log(`Server Capabilities:`, JSON.stringify(response.result.capabilities, null, 2));
+      } else if (mcpRequest.method === 'tools/list') {
+        console.log(`Tools Count: ${response.result.tools?.length || 0}`);
+      } else if (mcpRequest.method === 'tools/call') {
+        console.log(`Tool Called: ${mcpRequest.params?.name}`);
+        console.log(`Response Content Type: ${response.result.content?.[0]?.type}`);
+      }
+      console.log(`===========================\n`);
+
       res.json(response);
     } catch (error) {
-      res.status(500).json({
+      console.error(`\n=== MCP Error Details ===`);
+      console.error(`Method: ${mcpRequest?.method}`);
+      console.error(`Error:`, error);
+      console.error(`Stack:`, error.stack);
+      console.error(`========================\n`);
+
+      // 构建符合JSON-RPC标准的错误响应
+      const errorResponse = {
+        jsonrpc: "2.0",
+        id: req.body?.id || 1,
         error: {
           code: -32603,
           message: error.message
         }
-      });
+      };
+      res.status(500).json(errorResponse);
     }
   }
 
@@ -195,7 +296,7 @@ class TaskMasterRemoteMCPServer {
       tools: [
         // Group 1: 初始化与设置工具
         {
-          name: 'initialize-project',
+          name: 'initialize_project',
           description: `Initialize a new TaskMaster project in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -225,7 +326,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'parse-prd',
+          name: 'parse_prd',
           description: `Parse PRD content and generate tasks for project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -256,7 +357,7 @@ class TaskMasterRemoteMCPServer {
 
         // Group 2: 任务分析与扩展工具
         {
-          name: 'analyze',
+          name: 'analyze_project_complexity',
           description: `Analyze project complexity for ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -270,7 +371,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'expand-task',
+          name: 'expand_task',
           description: `Expand a specific task with subtasks in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -289,7 +390,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'expand-all',
+          name: 'expand_all',
           description: `Expand all tasks with subtasks in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -305,7 +406,7 @@ class TaskMasterRemoteMCPServer {
 
         // Group 3: 任务列表与查看工具
         {
-          name: 'get-tasks',
+          name: 'get_tasks',
           description: `Get all tasks in project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -323,7 +424,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'get-task',
+          name: 'get_task',
           description: `Get detailed information about a specific task in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -337,7 +438,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'next-task',
+          name: 'next_task',
           description: `Get the next task to work on in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -351,7 +452,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'complexity-report',
+          name: 'complexity_report',
           description: `Generate complexity report for ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -368,7 +469,7 @@ class TaskMasterRemoteMCPServer {
 
         // Group 4: 任务状态与管理工具
         {
-          name: 'set-task-status',
+          name: 'set_task_status',
           description: `Set task status in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -409,7 +510,7 @@ class TaskMasterRemoteMCPServer {
 
         // Group 5: 任务创建与修改工具
         {
-          name: 'add-task',
+          name: 'add_task',
           description: `Add a new task to project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -453,7 +554,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'add-subtask',
+          name: 'add_subtask',
           description: `Add a subtask to an existing task in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -481,7 +582,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'update-task',
+          name: 'update_task',
           description: `Update a task in project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -516,7 +617,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'update-subtask',
+          name: 'update_subtask',
           description: `Update a subtask in project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -546,7 +647,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'remove-task',
+          name: 'remove_task',
           description: `Remove a task from project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -565,7 +666,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'remove-subtask',
+          name: 'remove_subtask',
           description: `Remove a subtask from project ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -583,7 +684,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'clear-subtasks',
+          name: 'clear_subtasks',
           description: `Clear all subtasks from a task in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -597,7 +698,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'move-task',
+          name: 'move_task',
           description: `Move a task to a different position in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -617,7 +718,7 @@ class TaskMasterRemoteMCPServer {
 
         // Group 6: 依赖管理工具
         {
-          name: 'add-dependency',
+          name: 'add_dependency',
           description: `Add a dependency between tasks in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -635,7 +736,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'remove-dependency',
+          name: 'remove_dependency',
           description: `Remove a dependency between tasks in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -653,7 +754,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'validate-dependencies',
+          name: 'validate_dependencies',
           description: `Validate task dependencies for circular references in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -667,7 +768,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'fix-dependencies',
+          name: 'fix_dependencies',
           description: `Fix circular dependencies in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -684,7 +785,7 @@ class TaskMasterRemoteMCPServer {
 
         // Group 7: 标签管理工具
         {
-          name: 'list-tags',
+          name: 'list_tags',
           description: `List all available tags in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -692,7 +793,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'add-tag',
+          name: 'add_tag',
           description: `Add a new tag in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -710,7 +811,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'delete-tag',
+          name: 'delete_tag',
           description: `Delete a tag from ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -729,7 +830,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'use-tag',
+          name: 'use_tag',
           description: `Switch to a specific tag in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -743,7 +844,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'rename-tag',
+          name: 'rename_tag',
           description: `Rename a tag in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -761,7 +862,7 @@ class TaskMasterRemoteMCPServer {
           },
         },
         {
-          name: 'copy-tag',
+          name: 'copy_tag',
           description: `Copy a tag to create a new tag in ${projectId}`,
           inputSchema: {
             type: 'object',
@@ -801,25 +902,25 @@ class TaskMasterRemoteMCPServer {
           },
         },
 
-        // 项目管理工具（新增）
-        {
-          name: 'switch-project',
-          description: 'Switch to a different project',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              projectId: {
-                type: 'string',
-                description: 'Project ID to switch to',
-              },
-            },
-            required: ['projectId'],
-          },
-        },
+        // 项目管理工具（新增）- 注释掉，原始版本没有
+        // {
+        //   name: 'switch_project',
+        //   description: 'Switch to a different project',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {
+        //       projectId: {
+        //         type: 'string',
+        //         description: 'Project ID to switch to',
+        //       },
+        //     },
+        //     required: ['projectId'],
+        //   },
+        // },
 
         // 操作状态工具
         {
-          name: 'get-operation-status',
+          name: 'get_operation_status',
           description: 'Get the status of a background operation',
           inputSchema: {
             type: 'object',
@@ -833,52 +934,52 @@ class TaskMasterRemoteMCPServer {
           },
         },
 
-        // 缓存统计工具
-        {
-          name: 'cache-stats',
-          description: 'Get cache statistics for monitoring performance',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
+        // 缓存统计工具 - 注释掉，原始版本没有
+        // {
+        //   name: 'cache_stats',
+        //   description: 'Get cache statistics for monitoring performance',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {},
+        //   },
+        // },
 
-        // 通用更新工具
-        {
-          name: 'update',
-          description: 'Update multiple tasks or project settings',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              tasks: {
-                type: 'array',
-                description: 'Array of task updates',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: {
-                      type: 'number',
-                      description: 'Task ID',
-                    },
-                    title: {
-                      type: 'string',
-                      description: 'New task title',
-                    },
-                    description: {
-                      type: 'string',
-                      description: 'New task description',
-                    },
-                    status: {
-                      type: 'string',
-                      description: 'New task status',
-                    },
-                  },
-                  required: ['id'],
-                },
-              },
-            },
-          },
-        },
+        // 通用更新工具 - 注释掉，原始版本没有
+        // {
+        //   name: 'update',
+        //   description: 'Update multiple tasks or project settings',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {
+        //       tasks: {
+        //         type: 'array',
+        //         description: 'Array of task updates',
+        //         items: {
+        //           type: 'object',
+        //           properties: {
+        //             id: {
+        //               type: 'number',
+        //               description: 'Task ID',
+        //             },
+        //             title: {
+        //               type: 'string',
+        //               description: 'New task title',
+        //             },
+        //             description: {
+        //               type: 'string',
+        //               description: 'New task description',
+        //             },
+        //             status: {
+        //               type: 'string',
+        //               description: 'New task status',
+        //             },
+        //           },
+        //           required: ['id'],
+        //         },
+        //       },
+        //     },
+        //   },
+        // },
       ],
     };
   }
@@ -892,100 +993,100 @@ class TaskMasterRemoteMCPServer {
     try {
       switch (name) {
         // Group 1: 初始化与设置工具
-        case 'initialize-project':
+        case 'initialize_project':
           return await this.handleInitializeProject(args);
         case 'models':
           return await this.handleModels(args);
         case 'rules':
           return await this.handleRules(args);
-        case 'parse-prd':
+        case 'parse_prd':
           return await this.handleParsePRD(args);
 
         // Group 2: 任务分析与扩展工具
-        case 'analyze':
+        case 'analyze_project_complexity':
           return await this.handleAnalyze(args);
-        case 'expand-task':
+        case 'expand_task':
           return await this.handleExpandTask(args);
-        case 'expand-all':
+        case 'expand_all':
           return await this.handleExpandAll(args);
 
         // Group 3: 任务列表与查看工具
-        case 'get-tasks':
+        case 'get_tasks':
           return await this.handleGetTasks(args);
-        case 'get-task':
+        case 'get_task':
           return await this.handleGetTask(args);
-        case 'next-task':
+        case 'next_task':
           return await this.handleNextTask(args);
-        case 'complexity-report':
+        case 'complexity_report':
           return await this.handleComplexityReport(args);
 
         // Group 4: 任务状态与管理工具
-        case 'set-task-status':
+        case 'set_task_status':
           return await this.handleSetTaskStatus(args);
         case 'generate':
           return await this.handleGenerate(args);
 
         // Group 5: 任务创建与修改工具
-        case 'add-task':
+        case 'add_task':
           return await this.handleAddTask(args);
-        case 'add-subtask':
+        case 'add_subtask':
           return await this.handleAddSubtask(args);
-        case 'update-task':
+        case 'update_task':
           return await this.handleUpdateTask(args);
-        case 'update-subtask':
+        case 'update_subtask':
           return await this.handleUpdateSubtask(args);
-        case 'remove-task':
+        case 'remove_task':
           return await this.handleRemoveTask(args);
-        case 'remove-subtask':
+        case 'remove_subtask':
           return await this.handleRemoveSubtask(args);
-        case 'clear-subtasks':
+        case 'clear_subtasks':
           return await this.handleClearSubtasks(args);
-        case 'move-task':
+        case 'move_task':
           return await this.handleMoveTask(args);
 
         // Group 6: 依赖管理工具
-        case 'add-dependency':
+        case 'add_dependency':
           return await this.handleAddDependency(args);
-        case 'remove-dependency':
+        case 'remove_dependency':
           return await this.handleRemoveDependency(args);
-        case 'validate-dependencies':
+        case 'validate_dependencies':
           return await this.handleValidateDependencies(args);
-        case 'fix-dependencies':
+        case 'fix_dependencies':
           return await this.handleFixDependencies(args);
 
         // Group 7: 标签管理工具
-        case 'list-tags':
+        case 'list_tags':
           return await this.handleListTags(args);
-        case 'add-tag':
+        case 'add_tag':
           return await this.handleAddTag(args);
-        case 'delete-tag':
+        case 'delete_tag':
           return await this.handleDeleteTag(args);
-        case 'use-tag':
+        case 'use_tag':
           return await this.handleUseTag(args);
-        case 'rename-tag':
+        case 'rename_tag':
           return await this.handleRenameTag(args);
-        case 'copy-tag':
+        case 'copy_tag':
           return await this.handleCopyTag(args);
 
         // Group 8: 研究功能工具
         case 'research':
           return await this.handleResearch(args);
 
-        // 项目管理工具
-        case 'switch-project':
-          return await this.handleSwitchProject(args);
+        // 项目管理工具 - 注释掉，原始版本没有
+        // case 'switch_project':
+        //   return await this.handleSwitchProject(args);
 
         // 操作状态工具
-        case 'get-operation-status':
+        case 'get_operation_status':
           return await this.handleGetOperationStatus(args);
 
-        // 缓存统计工具
-        case 'cache-stats':
-          return await this.handleCacheStats(args);
+        // 缓存统计工具 - 注释掉，原始版本没有
+        // case 'cache_stats':
+        //   return await this.handleCacheStats(args);
 
-        // 通用更新工具
-        case 'update':
-          return await this.handleUpdate(args);
+        // 通用更新工具 - 注释掉，原始版本没有
+        // case 'update':
+        //   return await this.handleUpdate(args);
 
         default:
           throw new Error(`Unknown tool: ${name}`);
