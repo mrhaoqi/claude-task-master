@@ -90,3 +90,9 @@ dev-debug.log
 
 projects/
 projects/*
+
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/ 
