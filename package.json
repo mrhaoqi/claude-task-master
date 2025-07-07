@@ -57,7 +57,11 @@
 		"docker:stop": "chmod +x deployment/scripts/stop.sh && deployment/scripts/stop.sh",
 		"docker:clean": "chmod +x deployment/scripts/stop.sh && deployment/scripts/stop.sh production true true",
 		"perf:test": "node scripts/performance/concurrency-test.js",
-		"perf:analyze": "echo 'Performance analysis tools - see docs/CONCURRENCY_ANALYSIS.md'"
+		"perf:analyze": "echo 'Performance analysis tools - see docs/CONCURRENCY_ANALYSIS.md'",
+		"scope:help": "echo 'PRD Scope Management - see docs/PRD_SCOPE_MANAGEMENT.md'",
+		"scope:demo": "echo 'Demo: PRD scope checking and change request management'",
+		"scope:test": "node test-scope-management.js",
+		"scope:mcp-test": "node test-scope-mcp-tools.js"
 	},
 	"keywords": [
 		"claude",
