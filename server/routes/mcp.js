@@ -522,9 +522,13 @@ async function handleSSEConnection(req, res) {
     tools: [
       "add-task", "update-task", "delete-task", "get-task", "list-tasks",
       "add-project", "get-project", "list-projects", "delete-project",
-      "get-config", "update-config", "backup-project", "restore-project"
+      "get-config", "update-config", "backup-project", "restore-project",
+      // PRD范围管理工具（远程服务专用）
+      "analyze-prd-scope", "check-task-scope", "list-change-requests",
+      "create-change-request", "update-change-request-status", "get-scope-health",
+      "auto-associate-tasks", "get-requirements-baseline"
     ],
-    count: 13,
+    count: 21,
     project: req.projectId
   };
   res.write(`event: tools-available\n`);

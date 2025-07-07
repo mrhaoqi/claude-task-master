@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
 import cors from 'cors';
+import ScopeManagementMCPTools from '../server/mcp-tools/scope-management-tools.js';
 // Using built-in fetch in Node.js 18+
 
 class TaskMasterRemoteMCPServer {
@@ -30,6 +31,9 @@ class TaskMasterRemoteMCPServer {
 
     // 项目ID将从HTTP头中获取，不再从环境变量
     this.defaultProjectId = process.env.TASKMASTER_PROJECT_ID || 'default';
+
+    // 初始化范围管理工具
+    this.scopeTools = new ScopeManagementMCPTools();
 
     this.setupToolHandlers();
     this.setupHttpServer();
@@ -980,6 +984,9 @@ class TaskMasterRemoteMCPServer {
         //     },
         //   },
         // },
+
+        // Group 9: PRD范围管理工具（远程服务专用）
+        ...this.scopeTools.getToolDefinitions()
       ],
     };
   }
@@ -1088,6 +1095,17 @@ class TaskMasterRemoteMCPServer {
         // case 'update':
         //   return await this.handleUpdate(args);
 
+        // Group 9: PRD范围管理工具（远程服务专用）
+        case 'analyze_prd_scope':
+        case 'check_task_scope':
+        case 'list_change_requests':
+        case 'create_change_request':
+        case 'update_change_request_status':
+        case 'get_scope_health':
+        case 'auto_associate_tasks':
+        case 'get_requirements_baseline':
+          return await this.handleScopeManagementTool(name, args);
+
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -1097,6 +1115,39 @@ class TaskMasterRemoteMCPServer {
           {
             type: 'text',
             text: `Error: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+
+  /**
+   * 处理PRD范围管理工具调用
+   */
+  async handleScopeManagementTool(toolName, args) {
+    try {
+      // 获取项目路径
+      const projectId = this.projectId || this.defaultProjectId;
+      const projectPath = `./projects/${projectId}`;
+
+      // 调用范围管理工具
+      const result = await this.scopeTools.executeTool(toolName, args, projectPath);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error executing ${toolName}: ${error.message}`,
           },
         ],
       };
