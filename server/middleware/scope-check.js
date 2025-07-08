@@ -31,19 +31,50 @@ export class ScopeCheckMiddleware {
 
     return async (req, res, next) => {
       try {
+        this.logger.debug('Scope check middleware triggered', {
+          method: req.method,
+          path: req.path,
+          operation,
+          requestId: req.requestId
+        });
+
         // 跳过某些路径
         if (this._shouldSkipCheck(req)) {
+          this.logger.debug('Skipping scope check', {
+            reason: 'shouldSkipCheck returned true',
+            method: req.method,
+            path: req.path,
+            requestId: req.requestId
+          });
           return next();
         }
 
         const projectPath = req.project?.path;
         if (!projectPath) {
+          this.logger.debug('Skipping scope check', {
+            reason: 'no project path',
+            projectPath,
+            requestId: req.requestId
+          });
           return next(); // 没有项目路径，跳过检查
         }
 
         // 提取任务信息
         const tasks = this._extractTasks(req, operation);
+        this.logger.debug('Extracted tasks for scope check', {
+          operation,
+          tasksCount: tasks?.length || 0,
+          tasks: tasks?.map(t => ({ title: t.title, description: t.description?.substring(0, 100) })),
+          requestId: req.requestId
+        });
+
         if (!tasks || tasks.length === 0) {
+          this.logger.debug('Skipping scope check', {
+            reason: 'no tasks extracted',
+            operation,
+            requestBody: req.body,
+            requestId: req.requestId
+          });
           return next(); // 没有任务，跳过检查
         }
 
@@ -114,13 +145,24 @@ export class ScopeCheckMiddleware {
   _shouldSkipCheck(req) {
     // 跳过GET请求
     if (req.method === 'GET') return true;
-    
+
+    // 获取完整的原始URL路径
+    const fullPath = req.originalUrl || req.url || req.path;
+
     // 跳过健康检查等
-    if (req.path === '/health' || req.path === '/') return true;
-    
+    if (fullPath === '/health') return true;
+
     // 跳过非任务相关的操作
-    if (!req.path.includes('/tasks')) return true;
-    
+    if (!fullPath.includes('/tasks')) return true;
+
+    this.logger.debug('Scope check will proceed', {
+      method: req.method,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      fullPath,
+      requestId: req.requestId
+    });
+
     return false;
   }
 
