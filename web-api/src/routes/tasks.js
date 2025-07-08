@@ -126,69 +126,6 @@ router.get('/', async (req, res) => {
 
 /**
  * @swagger
- * /api/projects/{projectId}/tasks/{taskId}:
- *   get:
- *     summary: 获取特定任务详情
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: projectId
- *         required: true
- *         schema:
- *           type: string
- *         description: 项目ID
- *       - in: path
- *         name: taskId
- *         required: true
- *         schema:
- *           type: string
- *         description: 任务ID
- *       - in: query
- *         name: tag
- *         schema:
- *           type: string
- *         description: 指定标签上下文
- *     responses:
- *       200:
- *         description: 任务详情获取成功
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/Task'
- */
-router.get('/:taskId', async (req, res) => {
-  try {
-    const { projectId, taskId } = req.params;
-    const { tag } = req.query;
-
-    const result = await taskMasterService.getTask({
-      id: taskId,
-      projectId,
-      tag
-    });
-
-    res.json({
-      success: true,
-      data: result.data,
-      mode: result.mode
-    });
-  } catch (error) {
-    logger.error(`获取任务详情失败 (项目: ${req.params.projectId}, 任务: ${req.params.taskId}):`, error);
-    res.status(500).json({
-      success: false,
-      error: '获取任务详情失败',
-      details: error.message
-    });
-  }
-});
-
-/**
- * @swagger
  * /api/projects/{projectId}/tasks/stats:
  *   get:
  *     summary: 获取任务统计信息
@@ -294,6 +231,69 @@ router.get('/next', async (req, res) => {
     res.status(500).json({
       success: false,
       error: '获取下一个任务失败',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/projects/{projectId}/tasks/{taskId}:
+ *   get:
+ *     summary: 获取特定任务详情
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 项目ID
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 任务ID
+ *       - in: query
+ *         name: tag
+ *         schema:
+ *           type: string
+ *         description: 指定标签上下文
+ *     responses:
+ *       200:
+ *         description: 任务详情获取成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Task'
+ */
+router.get('/:taskId', async (req, res) => {
+  try {
+    const { projectId, taskId } = req.params;
+    const { tag } = req.query;
+
+    const result = await taskMasterService.getTask({
+      id: taskId,
+      projectId,
+      tag
+    });
+
+    res.json({
+      success: true,
+      data: result.data,
+      mode: result.mode
+    });
+  } catch (error) {
+    logger.error(`获取任务详情失败 (项目: ${req.params.projectId}, 任务: ${req.params.taskId}):`, error);
+    res.status(500).json({
+      success: false,
+      error: '获取任务详情失败',
       details: error.message
     });
   }

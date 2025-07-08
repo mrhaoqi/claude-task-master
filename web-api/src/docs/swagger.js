@@ -141,6 +141,141 @@ const options = {
           },
           required: ['id', 'title', 'description', 'status']
         },
+        Project: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Unique project identifier',
+              example: 'my-web-app'
+            },
+            name: {
+              type: 'string',
+              description: 'Project name',
+              example: 'My Web Application'
+            },
+            description: {
+              type: 'string',
+              description: 'Project description',
+              example: 'A modern web application for task management'
+            },
+            taskCount: {
+              type: 'integer',
+              description: 'Number of tasks in this project',
+              example: 15
+            },
+            prCount: {
+              type: 'integer',
+              description: 'Number of product requirements',
+              example: 5
+            },
+            crCount: {
+              type: 'integer',
+              description: 'Number of change requests',
+              example: 3
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Project creation timestamp',
+              example: '2024-01-15T10:30:00Z'
+            }
+          },
+          required: ['id', 'name']
+        },
+        ProductRequirement: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Unique PR identifier',
+              example: 'pr-001'
+            },
+            title: {
+              type: 'string',
+              description: 'PR title',
+              example: 'User Authentication System'
+            },
+            description: {
+              type: 'string',
+              description: 'Detailed PR description',
+              example: 'Implement secure user authentication with JWT tokens'
+            },
+            content: {
+              type: 'string',
+              description: 'Full PR content/specification',
+              example: 'The system shall provide secure user authentication...'
+            },
+            status: {
+              type: 'string',
+              enum: ['draft', 'review', 'approved', 'implemented'],
+              description: 'PR status',
+              example: 'approved'
+            },
+            priority: {
+              type: 'string',
+              enum: ['high', 'medium', 'low'],
+              description: 'PR priority',
+              example: 'high'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'PR creation timestamp',
+              example: '2024-01-15T10:30:00Z'
+            }
+          },
+          required: ['id', 'title', 'description']
+        },
+        ChangeRequest: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Unique CR identifier',
+              example: 'cr-001'
+            },
+            title: {
+              type: 'string',
+              description: 'CR title',
+              example: 'Update Login UI Design'
+            },
+            description: {
+              type: 'string',
+              description: 'Detailed CR description',
+              example: 'Update the login interface to match new design guidelines'
+            },
+            content: {
+              type: 'string',
+              description: 'Full CR content/specification',
+              example: 'The login page should be updated to include...'
+            },
+            status: {
+              type: 'string',
+              enum: ['pending', 'approved', 'rejected', 'implemented'],
+              description: 'CR status',
+              example: 'pending'
+            },
+            priority: {
+              type: 'string',
+              enum: ['high', 'medium', 'low'],
+              description: 'CR priority',
+              example: 'medium'
+            },
+            relatedPr: {
+              type: 'string',
+              description: 'Related PR ID if applicable',
+              example: 'pr-001'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'CR creation timestamp',
+              example: '2024-01-15T10:30:00Z'
+            }
+          },
+          required: ['id', 'title', 'description']
+        },
         Tag: {
           type: 'object',
           properties: {
@@ -237,12 +372,20 @@ const options = {
     security: config.security.requireAuth ? [{ ApiKeyAuth: [] }] : [],
     tags: [
       {
-        name: 'Tasks',
-        description: 'Task management operations'
+        name: 'Projects',
+        description: 'Project management operations - create, list, and manage projects'
       },
       {
-        name: 'Projects',
-        description: 'Project initialization and management'
+        name: 'Product Requirements',
+        description: 'Product Requirements (PRs) management - view and manage product specifications'
+      },
+      {
+        name: 'Change Requests',
+        description: 'Change Requests (CRs) management - view and manage change requests'
+      },
+      {
+        name: 'Tasks',
+        description: 'Task management operations - view tasks and task statistics'
       },
       {
         name: 'Tags',

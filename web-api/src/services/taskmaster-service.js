@@ -13,18 +13,25 @@ import path from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Remote server configuration
-const SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:3000';
+// Configuration
 const PROJECTS_DIR = process.env.PROJECTS_DIR || join(__dirname, '../../../projects');
+const USE_REMOTE_SERVER = process.env.USE_REMOTE_SERVER === 'true';
+const SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:3000';
 
 /**
  * Helper functions for API calls and data management
  */
 
 /**
- * Make HTTP request to remote server
+ * Make HTTP request to remote server or return mock data
  */
 async function makeApiCall(endpoint, options = {}) {
+  // If remote server is not enabled, return mock data
+  if (!USE_REMOTE_SERVER) {
+    console.log(`Using local data for: ${endpoint}`);
+    return getMockData(endpoint, options);
+  }
+
   const { method = 'GET', data = null, params = {} } = options;
 
   try {
@@ -46,9 +53,29 @@ async function makeApiCall(endpoint, options = {}) {
     const response = await axios(config);
     return response.data;
   } catch (error) {
-    console.error(`API call failed: ${method} ${endpoint}`, error.message);
-    throw new Error(`Remote server error: ${error.message}`);
+    console.log(`⚠️  Remote server not available, using fallback mode: ${error.message}`);
+    return getMockData(endpoint, options);
   }
+}
+
+/**
+ * Get mock data for development/fallback mode
+ */
+function getMockData(endpoint, options = {}) {
+  const { method = 'GET' } = options;
+
+  // Mock responses for different endpoints
+  if (endpoint === '/health') {
+    return { status: 'healthy', mode: 'mock' };
+  }
+
+  // Default mock response
+  return {
+    success: true,
+    data: {},
+    message: 'Mock data response',
+    mode: 'fallback'
+  };
 }
 
 /**
@@ -125,7 +152,7 @@ class TaskMasterService {
    */
   async getProjects() {
     if (!this.initialized) {
-      return this._getFallbackProjects();
+      return await this._getFallbackProjects();
     }
 
     try {
@@ -137,7 +164,7 @@ class TaskMasterService {
       };
     } catch (error) {
       console.error('Failed to get projects:', error.message);
-      return this._getFallbackProjects();
+      return await this._getFallbackProjects();
     }
   }
 
@@ -280,7 +307,7 @@ class TaskMasterService {
     const { projectId, status, withSubtasks, tag } = params;
 
     if (!this.initialized) {
-      return this._getFallbackTasks(projectId);
+      return await this._getFallbackTasks(projectId);
     }
 
     try {
@@ -300,7 +327,7 @@ class TaskMasterService {
       };
     } catch (error) {
       console.error('Failed to get tasks:', error.message);
-      return this._getFallbackTasks(projectId);
+      return await this._getFallbackTasks(projectId);
     }
   }
 
@@ -559,21 +586,110 @@ class TaskMasterService {
 
   // ==================== FALLBACK METHODS ====================
 
-  _getFallbackProjects() {
-    return {
-      success: true,
-      data: {
-        projects: [
-          {
-            id: 'demo-project',
-            name: 'Demo Project',
-            description: 'Fallback demo project',
-            createdAt: new Date().toISOString()
+  async _getFallbackProjects() {
+    try {
+      // 读取真实的项目目录
+      const projectDirs = await fs.readdir(PROJECTS_DIR, { withFileTypes: true });
+      const projects = [];
+
+      for (const dir of projectDirs) {
+        if (dir.isDirectory()) {
+          const projectId = dir.name;
+
+          // 过滤掉.registry目录，它不是真正的项目
+          if (projectId === '.registry') {
+            continue;
           }
-        ]
-      },
-      mode: 'fallback'
-    };
+
+          const projectPath = path.join(PROJECTS_DIR, projectId);
+
+          // 尝试读取项目配置文件
+          let projectInfo = {
+            id: projectId,
+            name: projectId.charAt(0).toUpperCase() + projectId.slice(1).replace(/-/g, ' '),
+            description: `Project ${projectId}`,
+            createdAt: new Date().toISOString(),
+            taskCount: 0,
+            prCount: 0,
+            crCount: 0
+          };
+
+          try {
+            // 检查是否有项目配置文件
+            const configPath = path.join(projectPath, 'project.json');
+            try {
+              const configData = await fs.readFile(configPath, 'utf-8');
+              const config = JSON.parse(configData);
+              projectInfo = { ...projectInfo, ...config };
+            } catch (e) {
+              // 配置文件不存在，使用默认信息
+            }
+
+            // 统计任务、PRs、CRs数量
+            try {
+              const tasksPath = path.join(projectPath, 'tasks.json');
+              const tasksData = await fs.readFile(tasksPath, 'utf-8');
+              const tasks = JSON.parse(tasksData);
+              projectInfo.taskCount = Array.isArray(tasks) ? tasks.length : (tasks.tasks ? tasks.tasks.length : 0);
+            } catch (e) {
+              // 任务文件不存在
+            }
+
+            try {
+              const prsPath = path.join(projectPath, 'prs.json');
+              const prsData = await fs.readFile(prsPath, 'utf-8');
+              const prs = JSON.parse(prsData);
+              projectInfo.prCount = Array.isArray(prs) ? prs.length : (prs.prs ? prs.prs.length : 0);
+            } catch (e) {
+              // PRs文件不存在
+            }
+
+            try {
+              const crsPath = path.join(projectPath, 'crs.json');
+              const crsData = await fs.readFile(crsPath, 'utf-8');
+              const crs = JSON.parse(crsData);
+              projectInfo.crCount = Array.isArray(crs) ? crs.length : (crs.crs ? crs.crs.length : 0);
+            } catch (e) {
+              // CRs文件不存在
+            }
+
+            projects.push(projectInfo);
+          } catch (error) {
+            console.error(`Error reading project ${projectId}:`, error.message);
+            // 即使出错也添加基本信息
+            projects.push(projectInfo);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          projects: projects
+        },
+        mode: 'local-files'
+      };
+    } catch (error) {
+      console.error('Error reading projects directory:', error.message);
+      // 如果读取失败，返回硬编码的示例数据
+      return {
+        success: true,
+        data: {
+          projects: [
+            {
+              id: 'demo-project',
+              name: 'Demo Project',
+              description: 'Fallback demo project',
+              createdAt: new Date().toISOString(),
+              taskCount: 0,
+              prCount: 0,
+              crCount: 0
+            }
+          ]
+        },
+        mode: 'fallback'
+      };
+    }
   }
 
   _getFallbackProject(projectId) {
@@ -608,20 +724,73 @@ class TaskMasterService {
     };
   }
 
-  _getFallbackPrd(projectId) {
-    return {
-      success: true,
-      data: {
-        files: [
-          {
-            name: 'prd.txt',
-            content: 'Fallback PRD content',
-            lastModified: new Date().toISOString()
+  async _getFallbackPrd(projectId) {
+    try {
+      const projectPath = path.join(PROJECTS_DIR, projectId);
+      const docsPath = path.join(projectPath, '.taskmaster', 'docs');
+
+      try {
+        // 尝试读取docs目录中的PRD文件
+        const files = await fs.readdir(docsPath);
+        const prdFiles = [];
+
+        for (const file of files) {
+          if (/\.(txt|md|markdown)$/i.test(file)) {
+            const filePath = path.join(docsPath, file);
+            const stats = await fs.stat(filePath);
+            const content = await fs.readFile(filePath, 'utf-8');
+
+            prdFiles.push({
+              name: file,
+              content: content,
+              lastModified: stats.mtime.toISOString()
+            });
           }
-        ]
-      },
-      mode: 'fallback'
-    };
+        }
+
+        if (prdFiles.length > 0) {
+          return {
+            success: true,
+            data: {
+              files: prdFiles
+            },
+            mode: 'local-files'
+          };
+        }
+      } catch (fileError) {
+        console.log(`No PRD files found for project ${projectId}`);
+      }
+
+      // 如果没有找到真实文件，返回fallback数据
+      return {
+        success: true,
+        data: {
+          files: [
+            {
+              name: 'prd.txt',
+              content: 'Fallback PRD content',
+              lastModified: new Date().toISOString()
+            }
+          ]
+        },
+        mode: 'fallback'
+      };
+    } catch (error) {
+      console.error(`Error reading PRD for project ${projectId}:`, error.message);
+      return {
+        success: true,
+        data: {
+          files: [
+            {
+              name: 'prd.txt',
+              content: 'Fallback PRD content',
+              lastModified: new Date().toISOString()
+            }
+          ]
+        },
+        mode: 'fallback'
+      };
+    }
   }
 
   _getFallbackUploadPrd(projectId, prdData) {
@@ -673,28 +842,65 @@ class TaskMasterService {
     };
   }
 
-  _getFallbackTasks(projectId) {
-    return {
-      success: true,
-      data: {
-        tasks: [
-          {
-            id: '1',
-            title: `Demo Task for ${projectId}`,
-            description: 'Fallback task data',
-            status: 'pending',
-            priority: 'medium',
-            dependencies: [],
-            subtasks: []
+  async _getFallbackTasks(projectId) {
+    try {
+      const projectPath = path.join(PROJECTS_DIR, projectId);
+      const tasksPath = path.join(projectPath, 'tasks.json');
+
+      try {
+        const tasksData = await fs.readFile(tasksPath, 'utf-8');
+        const tasksJson = JSON.parse(tasksData);
+        const tasks = Array.isArray(tasksJson) ? tasksJson : (tasksJson.tasks || []);
+
+        return {
+          success: true,
+          data: {
+            tasks: tasks,
+            meta: {
+              total: tasks.length,
+              mode: 'local-files'
+            }
+          },
+          mode: 'local-files'
+        };
+      } catch (fileError) {
+        console.log(`No tasks file found for project ${projectId}, returning empty list`);
+        return {
+          success: true,
+          data: {
+            tasks: [],
+            meta: {
+              total: 0,
+              mode: 'empty'
+            }
+          },
+          mode: 'empty'
+        };
+      }
+    } catch (error) {
+      console.error(`Error reading tasks for project ${projectId}:`, error.message);
+      return {
+        success: true,
+        data: {
+          tasks: [
+            {
+              id: '1',
+              title: `Demo Task for ${projectId}`,
+              description: 'Fallback task data',
+              status: 'pending',
+              priority: 'medium',
+              dependencies: [],
+              subtasks: []
+            }
+          ],
+          meta: {
+            total: 1,
+            mode: 'fallback'
           }
-        ],
-        meta: {
-          total: 1,
-          mode: 'fallback'
-        }
-      },
-      mode: 'fallback'
-    };
+        },
+        mode: 'fallback'
+      };
+    }
   }
 
   _getFallbackTask(projectId, taskId) {
@@ -755,30 +961,83 @@ class TaskMasterService {
     };
   }
 
-  _getFallbackPrs(projectId) {
-    return {
-      success: true,
-      data: {
-        requirements: [
-          {
-            id: 'req-001',
-            title: 'User Authentication',
-            description: 'Fallback requirement for user authentication',
-            priority: 'high',
-            scope: 'core',
-            category: 'authentication',
-            extractedFrom: 'prd.txt',
-            createdAt: new Date().toISOString()
+  async _getFallbackPrs(projectId) {
+    try {
+      const projectPath = path.join(PROJECTS_DIR, projectId);
+      const prsPath = path.join(projectPath, 'prs.json');
+
+      try {
+        const prsData = await fs.readFile(prsPath, 'utf-8');
+        const prsJson = JSON.parse(prsData);
+        const prs = Array.isArray(prsJson) ? prsJson : (prsJson.prs || []);
+
+        return {
+          success: true,
+          data: {
+            requirements: prs,
+            metadata: {
+              totalRequirements: prs.length,
+              lastAnalyzed: new Date().toISOString(),
+              prdVersion: '1.0',
+              mode: 'local-files'
+            }
+          },
+          mode: 'local-files'
+        };
+      } catch (fileError) {
+        console.log(`No prs.json file found for project ${projectId}, returning fallback data`);
+      }
+
+      // 如果没有找到真实文件，返回fallback数据
+      return {
+        success: true,
+        data: {
+          requirements: [
+            {
+              id: 'req-001',
+              title: 'User Authentication',
+              description: 'Fallback requirement for user authentication',
+              priority: 'high',
+              scope: 'core',
+              category: 'authentication',
+              extractedFrom: 'prd.txt',
+              createdAt: new Date().toISOString()
+            }
+          ],
+          metadata: {
+            totalRequirements: 1,
+            lastAnalyzed: new Date().toISOString(),
+            prdVersion: '1.0'
           }
-        ],
-        metadata: {
-          totalRequirements: 1,
-          lastAnalyzed: new Date().toISOString(),
-          prdVersion: '1.0'
-        }
-      },
-      mode: 'fallback'
-    };
+        },
+        mode: 'fallback'
+      };
+    } catch (error) {
+      console.error(`Error reading PRs for project ${projectId}:`, error.message);
+      return {
+        success: true,
+        data: {
+          requirements: [
+            {
+              id: 'req-001',
+              title: 'User Authentication',
+              description: 'Fallback requirement for user authentication',
+              priority: 'high',
+              scope: 'core',
+              category: 'authentication',
+              extractedFrom: 'prd.txt',
+              createdAt: new Date().toISOString()
+            }
+          ],
+          metadata: {
+            totalRequirements: 1,
+            lastAnalyzed: new Date().toISOString(),
+            prdVersion: '1.0'
+          }
+        },
+        mode: 'fallback'
+      };
+    }
   }
 
   _getFallbackPr(projectId, reqId) {
@@ -820,31 +1079,85 @@ class TaskMasterService {
     };
   }
 
-  _getFallbackCrs(projectId) {
-    return {
-      success: true,
-      data: {
-        changeRequests: [
-          {
-            id: 'cr-001',
-            type: 'scope_expansion',
-            title: 'Add Social Login',
-            description: 'Fallback change request for social login feature',
-            status: 'pending',
-            priority: 'medium',
-            relatedTasks: ['task-001'],
-            relatedRequirements: ['req-001'],
-            createdAt: new Date().toISOString()
+  async _getFallbackCrs(projectId) {
+    try {
+      const projectPath = path.join(PROJECTS_DIR, projectId);
+      const crsPath = path.join(projectPath, 'crs.json');
+
+      try {
+        const crsData = await fs.readFile(crsPath, 'utf-8');
+        const crsJson = JSON.parse(crsData);
+        const crs = Array.isArray(crsJson) ? crsJson : (crsJson.crs || []);
+
+        return {
+          success: true,
+          data: {
+            changeRequests: crs,
+            metadata: {
+              totalChangeRequests: crs.length,
+              pendingCount: crs.filter(cr => cr.status === 'pending').length,
+              approvedCount: crs.filter(cr => cr.status === 'approved').length,
+              mode: 'local-files'
+            }
+          },
+          mode: 'local-files'
+        };
+      } catch (fileError) {
+        console.log(`No crs.json file found for project ${projectId}, returning fallback data`);
+      }
+
+      // 如果没有找到真实文件，返回fallback数据
+      return {
+        success: true,
+        data: {
+          changeRequests: [
+            {
+              id: 'cr-001',
+              type: 'scope_expansion',
+              title: 'Add Social Login',
+              description: 'Fallback change request for social login feature',
+              status: 'pending',
+              priority: 'medium',
+              relatedTasks: ['task-001'],
+              relatedRequirements: ['req-001'],
+              createdAt: new Date().toISOString()
+            }
+          ],
+          metadata: {
+            totalChangeRequests: 1,
+            pendingCount: 1,
+            approvedCount: 0
           }
-        ],
-        metadata: {
-          totalChangeRequests: 1,
-          pendingCount: 1,
-          approvedCount: 0
-        }
-      },
-      mode: 'fallback'
-    };
+        },
+        mode: 'fallback'
+      };
+    } catch (error) {
+      console.error(`Error reading CRs for project ${projectId}:`, error.message);
+      return {
+        success: true,
+        data: {
+          changeRequests: [
+            {
+              id: 'cr-001',
+              type: 'scope_expansion',
+              title: 'Add Social Login',
+              description: 'Fallback change request for social login feature',
+              status: 'pending',
+              priority: 'medium',
+              relatedTasks: ['task-001'],
+              relatedRequirements: ['req-001'],
+              createdAt: new Date().toISOString()
+            }
+          ],
+          metadata: {
+            totalChangeRequests: 1,
+            pendingCount: 1,
+            approvedCount: 0
+          }
+        },
+        mode: 'fallback'
+      };
+    }
   }
 
   _getFallbackCr(projectId, crId) {
