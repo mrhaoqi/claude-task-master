@@ -985,6 +985,28 @@ class TaskMasterRemoteMCPServer {
         //   },
         // },
 
+        // Group 8.5: IDE配置管理工具
+        {
+          name: 'get_ide_config_content',
+          description: `Get IDE configuration file contents for client-side creation`,
+          inputSchema: {
+            type: 'object',
+            properties: {
+              ideType: {
+                type: 'string',
+                description: 'Specific IDE type to get (cursor, vscode, claude, github, idea, roo, trae, windsurf, clinerules). If not specified, gets all available IDE configs',
+                enum: ['cursor', 'vscode', 'claude', 'github', 'idea', 'roo', 'trae', 'windsurf', 'clinerules']
+              },
+              format: {
+                type: 'string',
+                description: 'Output format: "content" for file contents, "script" for executable script',
+                enum: ['content', 'script'],
+                default: 'content'
+              }
+            }
+          }
+        },
+
         // Group 9: PRD范围管理工具（远程服务专用）
         ...this.scopeTools.getToolDefinitions()
       ],
@@ -1078,6 +1100,10 @@ class TaskMasterRemoteMCPServer {
         // Group 8: 研究功能工具
         case 'research':
           return await this.handleResearch(args);
+
+        // Group 8.5: IDE配置管理工具
+        case 'get_ide_config_content':
+          return await this.handleGetIdeConfigContent(args);
 
         // 项目管理工具 - 注释掉，原始版本没有
         // case 'switch_project':
@@ -1799,6 +1825,207 @@ class TaskMasterRemoteMCPServer {
         {
           type: 'text',
           text: `🔬 Research results for '${query}' (scope: ${scope}) in project ${this.projectId}:\n\n${JSON.stringify(result.data, null, 2)}`,
+        },
+      ],
+    };
+  }
+
+  // Group 8.5: 获取IDE配置内容工具处理函数
+  async handleGetIdeConfigContent(args) {
+    const { ideType, format = 'content' } = args;
+
+    try {
+      // 导入必要的模块
+      const fs = await import('fs');
+      const path = await import('path');
+
+      // 所有支持的IDE配置目录
+      const ideDirectories = [
+        '.claude',
+        '.clinerules',
+        '.cursor',
+        '.github',
+        '.idea',
+        '.roo',
+        '.trae',
+        '.vscode',
+        '.windsurf'
+      ];
+
+      // 确定要读取的IDE目录
+      let targetDirectories = [];
+      if (ideType) {
+        const ideDir = `.${ideType}`;
+        if (ideDirectories.includes(ideDir)) {
+          targetDirectories = [ideDir];
+        } else {
+          throw new Error(`不支持的IDE类型: ${ideType}。支持的类型: ${ideDirectories.map(d => d.substring(1)).join(', ')}`);
+        }
+      } else {
+        targetDirectories = ideDirectories;
+      }
+
+      // 项目根目录路径（MCP服务器运行的目录）
+      const projectRootPath = process.cwd();
+      console.log(`🔍 Reading IDE config from project root: ${projectRootPath}`);
+
+      let fileContents = [];
+
+      // 读取每个IDE目录的文件
+      for (const ideDir of targetDirectories) {
+        const ideDirPath = path.join(projectRootPath, ideDir);
+
+        // 检查目录是否存在
+        if (!fs.existsSync(ideDirPath)) {
+          console.log(`⚠️ IDE目录不存在: ${ideDirPath}`);
+          continue;
+        }
+
+        // 递归读取目录中的所有文件
+        const files = this.readDirectoryRecursively(ideDirPath, ideDir, fs, path);
+        fileContents.push(...files);
+      }
+
+      if (fileContents.length === 0) {
+        throw new Error(`未找到任何IDE配置文件${ideType ? ` (${ideType})` : ''}`);
+      }
+
+      if (format === 'script') {
+        // 生成创建文件的脚本
+        return this.generateFileCreationScript(fileContents, ideType);
+      } else {
+        // 返回文件内容列表
+        return this.generateFileContentResponse(fileContents, ideType);
+      }
+
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ 获取IDE配置内容失败: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+
+  // 递归读取目录中的所有文件
+  readDirectoryRecursively(dirPath, relativePath, fs, path) {
+    const files = [];
+
+    try {
+      const items = fs.readdirSync(dirPath);
+
+      for (const item of items) {
+        const itemPath = path.join(dirPath, item);
+        const relativeItemPath = path.join(relativePath, item);
+        const stat = fs.statSync(itemPath);
+
+        if (stat.isDirectory()) {
+          // 递归读取子目录
+          const subFiles = this.readDirectoryRecursively(itemPath, relativeItemPath, fs, path);
+          files.push(...subFiles);
+        } else if (stat.isFile()) {
+          // 读取文件内容
+          try {
+            const content = fs.readFileSync(itemPath, 'utf8');
+            files.push({
+              path: relativeItemPath.replace(/\\/g, '/'), // 统一使用正斜杠
+              content: content
+            });
+          } catch (readError) {
+            console.log(`⚠️ 无法读取文件: ${itemPath}, 错误: ${readError.message}`);
+          }
+        }
+      }
+    } catch (dirError) {
+      console.log(`⚠️ 无法读取目录: ${dirPath}, 错误: ${dirError.message}`);
+    }
+
+    return files;
+  }
+
+  // 生成文件内容响应
+  generateFileContentResponse(fileContents, ideType) {
+    let resultMessage = `📁 IDE配置文件内容获取成功！\n\n`;
+    resultMessage += `项目: ${this.projectId}\n`;
+    resultMessage += `IDE类型: ${ideType || '全部'}\n`;
+    resultMessage += `文件数量: ${fileContents.length}\n\n`;
+
+    resultMessage += `📋 文件列表和内容：\n`;
+    resultMessage += `${'='.repeat(50)}\n\n`;
+
+    for (const file of fileContents) {
+      resultMessage += `📄 文件: ${file.path}\n`;
+      resultMessage += `${'─'.repeat(30)}\n`;
+      resultMessage += `${file.content}\n`;
+      resultMessage += `${'─'.repeat(30)}\n\n`;
+    }
+
+    resultMessage += `💡 使用说明：\n`;
+    resultMessage += `1. 在您的客户端项目根目录创建上述文件\n`;
+    resultMessage += `2. 复制对应的文件内容\n`;
+    resultMessage += `3. 或者使用 format: "script" 参数获取自动化脚本\n`;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: resultMessage,
+        },
+      ],
+    };
+  }
+
+  // 生成文件创建脚本
+  generateFileCreationScript(fileContents, ideType) {
+    let scriptContent = `#!/bin/bash\n`;
+    scriptContent += `# IDE配置文件创建脚本\n`;
+    scriptContent += `# 项目: ${this.projectId}\n`;
+    scriptContent += `# IDE类型: ${ideType || '全部'}\n`;
+    scriptContent += `# 生成时间: ${new Date().toISOString()}\n\n`;
+
+    scriptContent += `echo "🚀 开始创建IDE配置文件..."\n\n`;
+
+    for (const file of fileContents) {
+      const dirPath = file.path.includes('/') ? file.path.substring(0, file.path.lastIndexOf('/')) : '';
+
+      if (dirPath) {
+        scriptContent += `# 创建目录: ${dirPath}\n`;
+        scriptContent += `mkdir -p "${dirPath}"\n\n`;
+      }
+
+      scriptContent += `# 创建文件: ${file.path}\n`;
+      scriptContent += `cat > "${file.path}" << 'EOF'\n`;
+      scriptContent += `${file.content}\n`;
+      scriptContent += `EOF\n\n`;
+      scriptContent += `echo "✅ 创建文件: ${file.path}"\n\n`;
+    }
+
+    scriptContent += `echo "🎉 IDE配置文件创建完成！"\n`;
+    scriptContent += `echo "📁 共创建 ${fileContents.length} 个文件"\n`;
+
+    let resultMessage = `📁 IDE配置文件创建脚本生成成功！\n\n`;
+    resultMessage += `项目: ${this.projectId}\n`;
+    resultMessage += `IDE类型: ${ideType || '全部'}\n`;
+    resultMessage += `文件数量: ${fileContents.length}\n\n`;
+
+    resultMessage += `💾 脚本内容：\n`;
+    resultMessage += `${'='.repeat(50)}\n`;
+    resultMessage += `${scriptContent}\n`;
+    resultMessage += `${'='.repeat(50)}\n\n`;
+
+    resultMessage += `💡 使用说明：\n`;
+    resultMessage += `1. 将上述脚本内容保存为 create_ide_config.sh\n`;
+    resultMessage += `2. 在客户端项目根目录执行: chmod +x create_ide_config.sh\n`;
+    resultMessage += `3. 运行脚本: ./create_ide_config.sh\n`;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: resultMessage,
         },
       ],
     };
