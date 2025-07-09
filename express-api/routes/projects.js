@@ -2,6 +2,9 @@ import express from 'express';
 import { createLogger } from '../utils/logger.js';
 import { projectListCache } from '../middleware/response-cache.js';
 import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
+import archiver from 'archiver';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
 const logger = createLogger('projects-router');
@@ -217,6 +220,107 @@ router.delete('/:projectId', async (req, res, next) => {
         });
 
     } catch (error) {
+        if (error.message.includes('not found')) {
+            next(new NotFoundError(error.message));
+        } else {
+            next(error);
+        }
+    }
+});
+
+// 下载项目的IDE配置文件
+router.get('/:projectId/ide-config/:ideType?', async (req, res, next) => {
+    try {
+        const { projectId, ideType } = req.params;
+        const projectManager = req.projectManager;
+
+        // 验证项目是否存在
+        const project = projectManager.getProject(projectId);
+        if (!project) {
+            throw new NotFoundError(`Project ${projectId} not found`);
+        }
+
+        const projectPath = project.path;
+
+        // 所有支持的IDE配置目录
+        const ideDirectories = [
+            '.claude',
+            '.clinerules',
+            '.cursor',
+            '.github',
+            '.ide',
+            '.roo',
+            '.trae',
+            '.vscode',
+            '.windsurf'
+        ];
+
+        // 创建ZIP文件
+        const archive = archiver('zip', {
+            zlib: { level: 9 }
+        });
+
+        let filename;
+        let foundConfigs = [];
+
+        if (ideType) {
+            // 下载特定IDE配置
+            const ideDir = `.${ideType}`;
+            if (!ideDirectories.includes(ideDir)) {
+                throw new ValidationError(`Unsupported IDE type: ${ideType}. Supported types: ${ideDirectories.map(d => d.substring(1)).join(', ')}`);
+            }
+
+            const ideConfigDir = path.join(projectPath, ideDir);
+            if (!fs.existsSync(ideConfigDir)) {
+                throw new NotFoundError(`IDE configuration for ${ideType} not found in project ${projectId}`);
+            }
+
+            archive.directory(ideConfigDir, ideDir);
+            filename = `${projectId}-${ideType}-config.zip`;
+            foundConfigs.push(ideType);
+
+        } else {
+            // 下载所有存在的IDE配置
+            for (const ideDir of ideDirectories) {
+                const ideConfigDir = path.join(projectPath, ideDir);
+                if (fs.existsSync(ideConfigDir)) {
+                    archive.directory(ideConfigDir, ideDir);
+                    foundConfigs.push(ideDir.substring(1));
+                }
+            }
+
+            if (foundConfigs.length === 0) {
+                throw new NotFoundError(`No IDE configurations found in project ${projectId}`);
+            }
+
+            filename = `${projectId}-ide-configs.zip`;
+        }
+
+        // 设置响应头
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        // 管道输出到响应
+        archive.pipe(res);
+
+        // 完成归档
+        await archive.finalize();
+
+        logger.info(`IDE config downloaded`, {
+            projectId,
+            ideType: ideType || 'all',
+            foundConfigs,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Download IDE config failed', {
+            error: error.message,
+            projectId: req.params.projectId,
+            ideType: req.params.ideType,
+            requestId: req.requestId
+        });
+
         if (error.message.includes('not found')) {
             next(new NotFoundError(error.message));
         } else {

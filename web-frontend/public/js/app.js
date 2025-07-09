@@ -333,6 +333,9 @@ class TaskMasterApp {
                         <button class="btn btn-secondary" onclick="app.viewProjectDetails('${project.id}')">
                             查看详情
                         </button>
+                        <button class="btn btn-info" onclick="app.downloadIdeConfig('${project.id}')" title="下载IDE配置文件">
+                            📁 IDE配置
+                        </button>
                     </div>
                 </div>
             `;
@@ -376,6 +379,38 @@ class TaskMasterApp {
             this.showAlert('已跳转到项目PRD文档页面', 'success');
         } catch (error) {
             this.showAlert(`跳转失败: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * 下载IDE配置文件
+     */
+    async downloadIdeConfig(projectId, ideType = null) {
+        try {
+            this.showAlert('正在准备IDE配置文件下载...', 'info');
+
+            // 构建下载URL
+            const url = ideType
+                ? `${this.config.baseUrl}/api/projects/${projectId}/ide-config/${ideType}`
+                : `${this.config.baseUrl}/api/projects/${projectId}/ide-config`;
+
+            // 创建隐藏的下载链接
+            const link = document.createElement('a');
+            link.href = url;
+            link.style.display = 'none';
+
+            // 添加到页面并触发下载
+            document.body.appendChild(link);
+            link.click();
+
+            // 清理
+            document.body.removeChild(link);
+
+            this.showAlert('IDE配置文件下载已开始', 'success');
+
+        } catch (error) {
+            console.error('下载IDE配置失败:', error);
+            this.showAlert(`下载IDE配置失败: ${error.message}`, 'error');
         }
     }
 

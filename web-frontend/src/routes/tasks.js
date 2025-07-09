@@ -21,6 +21,11 @@ const getTasksSchema = z.object({
   offset: z.number().min(0).optional()
 });
 
+const generateFromPrdSchema = z.object({
+  prdContent: z.string().min(1, 'PRD content is required'),
+  numTasks: z.number().min(1).max(50).optional().default(10)
+});
+
 // ==================== TASK MANAGEMENT ROUTES (READ-ONLY) ====================
 
 /**
@@ -294,6 +299,93 @@ router.get('/:taskId', async (req, res) => {
     res.status(500).json({
       success: false,
       error: '获取任务详情失败',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/projects/{projectId}/tasks/generate-from-prd:
+ *   post:
+ *     summary: 从PRD生成任务
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 项目ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - prdContent
+ *             properties:
+ *               prdContent:
+ *                 type: string
+ *                 description: PRD文档内容
+ *               numTasks:
+ *                 type: integer
+ *                 description: 期望生成的任务数量
+ *                 default: 10
+ *                 minimum: 1
+ *                 maximum: 50
+ *     responses:
+ *       200:
+ *         description: 任务生成成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     tasks:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Task'
+ */
+router.post('/generate-from-prd', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const validatedData = generateFromPrdSchema.parse(req.body);
+
+    // 调用taskMasterService的parsePrd方法
+    const result = await taskMasterService.parsePrd(projectId, {
+      input: validatedData.prdContent,
+      numTasks: validatedData.numTasks,
+      force: false
+    });
+
+    res.json({
+      success: true,
+      message: '任务生成成功',
+      data: result.data,
+      mode: result.mode
+    });
+  } catch (error) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        success: false,
+        error: '参数验证失败',
+        details: error.errors
+      });
+    }
+
+    logger.error(`从PRD生成任务失败 (项目: ${req.params.projectId}):`, error);
+    res.status(500).json({
+      success: false,
+      error: '从PRD生成任务失败',
       details: error.message
     });
   }

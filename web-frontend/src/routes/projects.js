@@ -12,6 +12,8 @@ import logger from '../utils/logger.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
+import archiver from 'archiver';
 
 const router = express.Router();
 
@@ -580,6 +582,79 @@ router.post('/:projectId/prd/parse', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'PRD解析失败',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/projects/{projectId}/ide-config/{ideType}:
+ *   get:
+ *     summary: 下载项目IDE配置文件
+ *     tags: [Projects]
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 项目ID
+ *       - in: path
+ *         name: ideType
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [claude, clinerules, cursor, github, idea, roo, trae, vscode, windsurf]
+ *         description: IDE类型，不提供则下载所有IDE配置
+ *     responses:
+ *       200:
+ *         description: IDE配置文件下载成功
+ *         content:
+ *           application/zip:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
+router.get('/:projectId/ide-config/:ideType?', async (req, res) => {
+  try {
+    const { projectId, ideType } = req.params;
+
+    // 构建Express API服务的URL
+    const expressApiUrl = process.env.EXPRESS_API_URL || 'http://localhost:3000';
+    const apiPath = ideType
+      ? `/api/projects/${projectId}/ide-config/${ideType}`
+      : `/api/projects/${projectId}/ide-config`;
+
+    const targetUrl = `${expressApiUrl}${apiPath}`;
+
+    // 代理请求到Express API服务
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(targetUrl);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return res.status(response.status).json(errorData);
+    }
+
+    // 转发响应头
+    res.setHeader('Content-Type', response.headers.get('content-type'));
+    res.setHeader('Content-Disposition', response.headers.get('content-disposition'));
+
+    // 流式转发响应体
+    response.body.pipe(res);
+
+    logger.info(`IDE配置下载代理成功`, {
+      projectId,
+      ideType: ideType || 'all',
+      targetUrl
+    });
+
+  } catch (error) {
+    logger.error('IDE配置下载代理失败:', error);
+    res.status(500).json({
+      success: false,
+      error: 'IDE配置下载失败',
       details: error.message
     });
   }
