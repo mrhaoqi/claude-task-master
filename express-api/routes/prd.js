@@ -92,6 +92,48 @@ router.post('/parse', async (req, res, next) => {
     }
 });
 
+// 更新PRD文档（PUT方法）
+router.put('/', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { filename, content } = req.body;
+
+        if (!content) {
+            throw new ValidationError('Content is required');
+        }
+
+        const project = req.project;
+        const docsDir = path.join(project.path, '.taskmaster', 'docs');
+
+        // 确保docs目录存在
+        await fs.mkdir(docsDir, { recursive: true });
+
+        // 使用提供的文件名，或默认为prd.md
+        const actualFilename = filename || 'prd.md';
+        const filePath = path.join(docsDir, actualFilename);
+
+        // 写入文件
+        await fs.writeFile(filePath, content, 'utf8');
+
+        logger.info(`PRD document updated: ${filePath}`);
+
+        res.json({
+            success: true,
+            data: {
+                filename: actualFilename,
+                path: filePath,
+                size: content.length,
+                updatedAt: new Date().toISOString()
+            },
+            message: `PRD document updated successfully`,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // 上传PRD文件
 router.post('/upload', async (req, res, next) => {
     try {

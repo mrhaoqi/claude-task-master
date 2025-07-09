@@ -8,7 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
 import cors from 'cors';
-import ScopeManagementMCPTools from '../server/mcp-tools/scope-management-tools.js';
+import ScopeManagementMCPTools from '../express-api/mcp-tools/scope-management-tools.js';
 // Using built-in fetch in Node.js 18+
 
 class TaskMasterRemoteMCPServer {

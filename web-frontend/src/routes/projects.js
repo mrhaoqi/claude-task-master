@@ -338,6 +338,80 @@ router.get('/:projectId/prd', async (req, res) => {
     });
   }
 });
+
+/**
+ * @swagger
+ * /api/projects/{projectId}/prd:
+ *   put:
+ *     summary: 更新项目PRD文档
+ *     tags: [Projects]
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 项目ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: PRD文档内容
+ *               filename:
+ *                 type: string
+ *                 description: 文件名
+ *     responses:
+ *       200:
+ *         description: PRD文档更新成功
+ */
+router.put('/:projectId/prd', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const validatedData = uploadPrdSchema.parse(req.body);
+
+    if (!validatedData.content) {
+      return res.status(400).json({
+        success: false,
+        error: '请提供PRD文档内容'
+      });
+    }
+
+    const prdData = {
+      filename: validatedData.filename || 'prd.md',
+      content: validatedData.content
+    };
+
+    const result = await taskMasterService.uploadPrd(projectId, prdData);
+
+    res.json({
+      success: true,
+      message: 'PRD文档更新成功',
+      data: result.data,
+      mode: result.mode
+    });
+  } catch (error) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        success: false,
+        error: '参数验证失败',
+        details: error.errors
+      });
+    }
+
+    logger.error(`更新PRD文档失败 (项目: ${req.params.projectId}):`, error);
+    res.status(500).json({
+      success: false,
+      error: 'PRD文档更新失败',
+      details: error.message
+    });
+  }
+});
+
 /**
  * @swagger
  * /api/projects/{projectId}/prd/upload:

@@ -134,12 +134,27 @@ class TaskMasterService {
    * Test connection to remote server
    */
   async testConnection() {
+    if (!USE_REMOTE_SERVER) {
+      return false;
+    }
+
     try {
-      const response = await makeApiCall('/health');
-      if (response.status !== 'ok') {
-        throw new Error('Server health check failed');
+      const config = {
+        method: 'GET',
+        url: `${SERVER_BASE_URL}/health`,
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      };
+
+      const response = await axios(config);
+      // Accept both 'ok' and 'warning' status as healthy
+      if (response.data && (response.data.status === 'ok' || response.data.status === 'warning')) {
+        return true;
       }
-      return true;
+      throw new Error('Server health check failed');
     } catch (error) {
       throw new Error(`Cannot connect to remote server: ${error.message}`);
     }

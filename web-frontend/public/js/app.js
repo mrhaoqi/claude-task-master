@@ -30,9 +30,9 @@ class TaskMasterApp {
      * 加载配置
      */
     loadConfig() {
-        // 使用默认配置，不再需要API密钥
-        this.config.baseUrl = 'http://localhost:3002';
-        this.config.apiKey = 'test-api-key-123'; // 保持兼容性
+        // 配置指向Express API服务
+        this.config.baseUrl = 'http://localhost:3000';
+        console.log('🔧 配置加载完成:', this.config);
     }
 
     /**
@@ -151,31 +151,47 @@ class TaskMasterApp {
      */
     async apiRequest(endpoint, options = {}) {
         this.saveConfig();
-        
+
         const url = `${this.config.baseUrl}${endpoint}`;
         const defaultOptions = {
             headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': this.config.apiKey
+                'Content-Type': 'application/json'
             }
         };
-        
+
         const requestOptions = { ...defaultOptions, ...options };
         if (options.headers) {
             requestOptions.headers = { ...defaultOptions.headers, ...options.headers };
         }
-        
+
+        // 处理超时
+        const timeout = options.timeout || 30000; // 默认30秒超时
+        const controller = new AbortController();
+        requestOptions.signal = controller.signal;
+
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+        }, timeout);
+
         try {
             this.showLoading(true);
             const response = await fetch(url, requestOptions);
+            clearTimeout(timeoutId);
+
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.message || `HTTP ${response.status}`);
             }
-            
+
             return data;
         } catch (error) {
+            clearTimeout(timeoutId);
+
+            if (error.name === 'AbortError') {
+                throw new Error('请求超时，请稍后重试');
+            }
+
             console.error('API请求失败:', error);
             throw error;
         } finally {
@@ -270,11 +286,14 @@ class TaskMasterApp {
      * 加载项目列表
      */
     async loadProjects() {
+        console.log('🔄 开始加载项目列表...');
         try {
             const data = await this.apiRequest('/api/projects');
-            this.displayProjects(data.data.projects || []);
+            console.log('✅ 项目数据获取成功:', data);
+            this.displayProjects(data.data || data.projects || []);
             this.showAlert('项目列表加载成功!', 'success');
         } catch (error) {
+            console.error('❌ 加载项目失败:', error);
             this.showAlert(`加载项目失败: ${error.message}`, 'error');
         }
     }
@@ -381,6 +400,11 @@ class TaskMasterApp {
             document.getElementById('projectId').value = '';
             document.getElementById('projectName').value = '';
             document.getElementById('projectDescription').value = '';
+            document.getElementById('prdFile').value = '';
+            document.getElementById('generateTasks').checked = true;
+
+            // 重置表单状态
+            this.resetCreateProjectForm();
         }
     }
 
@@ -389,6 +413,7 @@ class TaskMasterApp {
      */
     async createProject() {
         try {
+            // 获取表单数据
             const projectData = {
                 id: document.getElementById('projectId').value.trim(),
                 name: document.getElementById('projectName').value.trim(),
@@ -400,17 +425,154 @@ class TaskMasterApp {
                 return;
             }
 
+            // 验证项目ID格式
+            if (!/^[a-z0-9-]+$/.test(projectData.id)) {
+                this.showAlert('项目ID只能包含小写字母、数字和连字符', 'error');
+                return;
+            }
+
+            // 显示进度
+            this.showCreateProgress('正在创建项目...', 10);
+
+            // 禁用提交按钮
+            const submitBtn = document.getElementById('createProjectSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '创建中...';
+
+            // 创建项目
             const data = await this.apiRequest('/api/projects', {
                 method: 'POST',
                 body: JSON.stringify(projectData)
             });
 
-            this.showAlert('项目创建成功!', 'success');
-            this.hideCreateProjectForm();
-            this.loadProjects();
+            this.showCreateProgress('项目创建成功，检查PRD文档...', 30);
+
+            // 检查是否有PRD文档需要上传
+            const prdFile = document.getElementById('prdFile').files[0];
+            const generateTasks = document.getElementById('generateTasks').checked;
+
+            if (prdFile) {
+                await this.uploadPrdAndGenerateTasks(projectData.id, prdFile, generateTasks);
+            } else {
+                this.showCreateProgress('项目创建完成!', 100);
+                setTimeout(() => {
+                    this.hideCreateProjectForm();
+                    this.showAlert('项目创建成功!', 'success');
+                    this.loadProjects();
+                }, 1000);
+            }
+
         } catch (error) {
+            this.hideCreateProgress();
+            this.resetCreateProjectForm();
             this.showAlert(`创建项目失败: ${error.message}`, 'error');
         }
+    }
+
+    /**
+     * 上传PRD文档并生成任务
+     */
+    async uploadPrdAndGenerateTasks(projectId, prdFile, generateTasks) {
+        try {
+            this.showCreateProgress('正在上传PRD文档...', 40);
+
+            // 读取文件内容
+            const fileContent = await this.readFileContent(prdFile);
+
+            // 上传PRD文档
+            const prdData = await this.apiRequest(`/api/projects/${projectId}/prd`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    content: fileContent,
+                    filename: prdFile.name
+                })
+            });
+
+            this.showCreateProgress('PRD文档上传成功...', 60);
+
+            if (generateTasks) {
+                this.showCreateProgress('正在解析PRD并生成任务，这可能需要1-2分钟...', 70);
+
+                // 使用更长的超时时间进行任务生成
+                const tasksData = await this.apiRequest(`/api/projects/${projectId}/tasks/generate-from-prd`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        prdContent: fileContent,
+                        numTasks: 10
+                    }),
+                    timeout: 120000 // 2分钟超时
+                });
+
+                this.showCreateProgress('任务生成完成!', 90);
+
+                // 显示生成的任务数量
+                const taskCount = tasksData.data?.tasks?.length || 0;
+                this.showCreateProgress(`项目创建完成! 已生成 ${taskCount} 个任务`, 100);
+            } else {
+                this.showCreateProgress('项目创建完成!', 100);
+            }
+
+            // 延迟关闭模态框
+            setTimeout(() => {
+                this.hideCreateProjectForm();
+                this.showAlert('项目创建成功!', 'success');
+                this.loadProjects();
+            }, 2000);
+
+        } catch (error) {
+            if (error.message.includes('timeout')) {
+                this.showAlert('任务生成超时，但项目和PRD已创建成功。您可以稍后手动生成任务。', 'warning');
+                setTimeout(() => {
+                    this.hideCreateProjectForm();
+                    this.loadProjects();
+                }, 2000);
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * 读取文件内容
+     */
+    async readFileContent(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('文件读取失败'));
+            reader.readAsText(file, 'UTF-8');
+        });
+    }
+
+    /**
+     * 显示创建进度
+     */
+    showCreateProgress(text, percentage) {
+        const progressContainer = document.getElementById('createProjectProgress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+
+        progressContainer.style.display = 'block';
+        progressFill.style.width = percentage + '%';
+        progressText.textContent = text;
+    }
+
+    /**
+     * 隐藏创建进度
+     */
+    hideCreateProgress() {
+        const progressContainer = document.getElementById('createProjectProgress');
+        progressContainer.style.display = 'none';
+    }
+
+    /**
+     * 重置创建项目表单
+     */
+    resetCreateProjectForm() {
+        const submitBtn = document.getElementById('createProjectSubmitBtn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '创建项目';
+        this.hideCreateProgress();
     }
 
     /**

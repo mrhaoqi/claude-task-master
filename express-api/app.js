@@ -47,8 +47,10 @@ class TaskMasterServer {
         // 安全中间件
         this.app.use(helmet());
         this.app.use(cors({
-            origin: '*', // 暂时允许所有来源
-            credentials: true
+            origin: true, // 允许所有origin访问
+            credentials: true,
+            allowedHeaders: ['Content-Type', 'Authorization', 'X-Project', 'X-Username', 'X-Password'],
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
         }));
 
         // 请求解析
