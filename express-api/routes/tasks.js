@@ -6,10 +6,12 @@ import { scopeCheckMiddlewares } from '../middleware/scope-check.js';
 import { taskListCache } from '../middleware/response-cache.js';
 import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
 import TaskEnhancementService from '../services/task-enhancement.js';
+import CoreAdapter from '../services/core-adapter.js';
 
 const router = express.Router({ mergeParams: true });
 const logger = createLogger('tasks-router');
 const taskEnhancement = new TaskEnhancementService();
+const coreAdapter = new CoreAdapter();
 
 // 项目验证中间件
 router.use(projectValidator);
@@ -243,6 +245,45 @@ router.post('/:taskId/analyze', async (req, res, next) => {
         });
         
     } catch (error) {
+        next(error);
+    }
+});
+
+// 从PRD生成任务（兼容性路由，重定向到PRD解析）
+router.post('/generate-from-prd', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { prdContent, numTasks = 10 } = req.body;
+
+        if (!prdContent) {
+            throw new ValidationError('prdContent is required');
+        }
+
+        const project = req.project;
+
+        // 调用PRD解析功能
+        const result = await coreAdapter.parsePRD(
+            project.path,
+            null, // 不使用文件路径，直接使用内容
+            numTasks,
+            {
+                prdContent, // 传递PRD内容
+                force: false,
+                append: false,
+                research: false
+            }
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: 'Tasks generated from PRD successfully',
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error generating tasks from PRD:', error);
         next(error);
     }
 });

@@ -1,13 +1,38 @@
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import { fileURLToPath } from 'url';
+import { z } from 'zod';
 import { createLogger } from '../utils/logger.js';
 import ConfigManager from './config-manager.js';
+import { generateObjectService } from '../../scripts/modules/ai-services-unified.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const logger = createLogger('core-adapter');
+
+// PRD解析的Zod schema
+const prdSingleTaskSchema = z.object({
+    id: z.number().int().positive(),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    details: z.string().nullable(),
+    testStrategy: z.string().nullable(),
+    priority: z.enum(['high', 'medium', 'low']).nullable(),
+    dependencies: z.array(z.number().int().positive()).nullable(),
+    status: z.string().nullable()
+});
+
+const prdResponseSchema = z.object({
+    tasks: z.array(prdSingleTaskSchema),
+    metadata: z.object({
+        projectName: z.string(),
+        totalTasks: z.number(),
+        sourceFile: z.string(),
+        generatedAt: z.string()
+    })
+});
 
 class CoreAdapter {
     constructor() {
@@ -101,25 +126,151 @@ class CoreAdapter {
     }
 
     /**
-     * 适配现有的parsePRD函数到项目目录
+     * 使用新的配置系统解析PRD并生成任务
      */
     async parsePRD(projectPath, prdPath, numTasks, options = {}) {
         try {
             const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
-            
-            // 设置项目根目录为当前项目路径
-            const adaptedOptions = {
-                ...options,
-                projectRoot: projectPath,
-                mcpLog: this.logger,
-                outputFormat: 'json'
+            let actualPrdPath = prdPath;
+            let prdContent = '';
+
+            // 处理PRD内容
+            if (options.prdContent && !prdPath) {
+                // 如果提供了内容而不是路径，创建临时文件
+                const tempFileName = `temp_prd_${Date.now()}.txt`;
+                actualPrdPath = path.join(projectPath, '.taskmaster', 'docs', tempFileName);
+
+                // 确保docs目录存在
+                const docsDir = path.dirname(actualPrdPath);
+                if (!fsSync.existsSync(docsDir)) {
+                    fsSync.mkdirSync(docsDir, { recursive: true });
+                }
+
+                // 写入临时文件
+                fsSync.writeFileSync(actualPrdPath, options.prdContent, 'utf8');
+                prdContent = options.prdContent;
+            } else if (actualPrdPath) {
+                // 读取PRD文件内容
+                prdContent = fsSync.readFileSync(actualPrdPath, 'utf8');
+            } else {
+                throw new Error('Either prdPath or prdContent must be provided');
+            }
+
+            // 检查并读取现有任务文件
+            let existingTasks = [];
+            let nextId = 1;
+
+            if (fsSync.existsSync(tasksPath)) {
+                try {
+                    const tasksData = JSON.parse(fsSync.readFileSync(tasksPath, 'utf8'));
+                    if (tasksData.main && tasksData.main.tasks) {
+                        existingTasks = tasksData.main.tasks;
+                        nextId = Math.max(...existingTasks.map(t => t.id), 0) + 1;
+                    }
+                } catch (error) {
+                    this.logger.warn('Failed to read existing tasks', { error: error.message });
+                }
+            }
+
+            // 构建AI提示
+            const systemPrompt = `You are an AI assistant specialized in analyzing Product Requirements Documents (PRDs) and generating a structured, logically ordered, dependency-aware and sequenced list of development tasks in JSON format.
+
+Analyze the provided PRD content and generate approximately ${numTasks} top-level development tasks. If the complexity or the level of detail of the PRD is high, generate more tasks relative to the complexity of the PRD
+Each task should represent a logical unit of work needed to implement the requirements and focus on the most direct and effective way to implement the requirements without unnecessary complexity or overengineering. Include pseudo-code, implementation details, and test strategy for each task. Find the most up to date information to implement each task.
+Assign sequential IDs starting from ${nextId}. Infer title, description, details, and test strategy for each task based *only* on the PRD content.
+Set status to 'pending', dependencies to an empty array [], and priority to 'medium' initially for all tasks.
+Respond ONLY with a valid JSON object containing a single key "tasks", where the value is an array of task objects adhering to the provided Zod schema. Do not include any explanation or markdown formatting.
+
+Each task should follow this JSON structure:
+{
+	"id": number,
+	"title": string,
+	"description": string,
+	"status": "pending",
+	"dependencies": number[] (IDs of tasks this depends on),
+	"priority": "high" | "medium" | "low",
+	"details": string (implementation details),
+	"testStrategy": string (validation approach)
+}
+
+Guidelines:
+1. Unless complexity warrants otherwise, create exactly ${numTasks} tasks, numbered sequentially starting from ${nextId}
+2. Each task should be atomic and focused on a single responsibility following the most up to date best practices and standards
+3. Order tasks logically - consider dependencies and implementation sequence
+4. Early tasks should focus on setup, core functionality first, then advanced features
+5. Include clear validation/testing approach for each task
+6. Set appropriate dependency IDs (a task can only depend on tasks with lower IDs, potentially including existing tasks with IDs less than ${nextId} if applicable)
+7. Assign priority (high/medium/low) based on criticality and dependency order
+8. Include detailed implementation guidance in the "details" field
+9. If the PRD contains specific requirements for libraries, database schemas, frameworks, tech stacks, or any other implementation details, STRICTLY ADHERE to these requirements in your task breakdown and do not discard them under any circumstance
+10. Focus on filling in any gaps left by the PRD or areas that aren't fully specified, while preserving all explicit requirements
+11. Always aim to provide the most direct path to implementation, avoiding over-engineering or roundabout approaches`;
+
+            const userPrompt = `Here's the Product Requirements Document (PRD) to break down into approximately ${numTasks} tasks, starting IDs from ${nextId}:
+
+${prdContent}
+
+
+
+		Return your response in this format:
+{
+    "tasks": [
+        {
+            "id": 1,
+            "title": "Setup Project Repository",
+            "description": "...",
+            ...
+        },
+        ...
+    ],
+    "metadata": {
+        "projectName": "PRD Implementation",
+        "totalTasks": ${numTasks},
+        "sourceFile": "${actualPrdPath}",
+        "generatedAt": "YYYY-MM-DD"
+    }
+}`;
+
+            this.logger.info('Calling AI service to generate tasks from PRD...', {
+                numTasks,
+                nextId,
+                research: options.research || false
+            });
+
+            // 调用AI服务
+            const aiResponse = await generateObjectService({
+                role: options.research ? 'research' : 'main',
+                schema: prdResponseSchema,
+                objectName: 'tasks_data',
+                systemPrompt,
+                prompt: userPrompt,
+                commandName: 'parse-prd',
+                outputType: 'json'
+            });
+
+            const generatedTasks = aiResponse.data || aiResponse;
+
+            // 清理临时文件
+            if (options.prdContent && !prdPath && fsSync.existsSync(actualPrdPath)) {
+                try {
+                    fsSync.unlinkSync(actualPrdPath);
+                } catch (cleanupError) {
+                    this.logger.warn('Failed to cleanup temporary PRD file', {
+                        file: actualPrdPath,
+                        error: cleanupError.message
+                    });
+                }
+            }
+
+            // 构建返回结果，与原始parsePRD格式兼容
+            return {
+                success: true,
+                tasksPath,
+                data: generatedTasks,
+                telemetryData: aiResponse.telemetryData || null,
+                tagInfo: { tag: 'main', isNewTag: existingTasks.length === 0 }
             };
 
-            // 动态导入现有的parsePRD函数
-            const { default: parsePRD } = await import('../../scripts/modules/task-manager/parse-prd.js');
-            const result = await parsePRD(prdPath, tasksPath, numTasks, adaptedOptions);
-            
-            return result;
         } catch (error) {
             this.logger.error('PRD parsing failed', { error: error.message, projectPath });
             throw error;
