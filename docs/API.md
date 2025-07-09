@@ -1,15 +1,53 @@
-# Claude Task Master - API 文档
+# Claude Task Master API 文档
 
-## 概述
+## 📋 目录
 
-Claude Task Master 提供了完整的 REST API 和 MCP (Model Context Protocol) 接口，支持多项目任务管理。
+1. [API 概述](#api-概述)
+2. [认证方式](#认证方式)
+3. [响应格式](#响应格式)
+4. [错误处理](#错误处理)
+5. [项目管理 API](#项目管理-api)
+6. [任务管理 API](#任务管理-api)
+7. [PRD 处理 API](#prd-处理-api)
+8. [IDE 配置 API](#ide-配置-api)
+9. [MCP 工具 API](#mcp-工具-api)
+10. [示例代码](#示例代码)
 
-## 基础信息
+---
 
-- **基础URL**: `http://localhost:3000`
-- **API版本**: v1
-- **内容类型**: `application/json`
-- **认证**: 暂不支持（开发版本）
+## 🌐 API 概述
+
+### 基础信息
+- **基础 URL**: `http://localhost:3000/api`
+- **协议**: HTTP/HTTPS
+- **数据格式**: JSON
+- **字符编码**: UTF-8
+
+### 服务端点
+- **Express API**: `http://localhost:3000` - RESTful API 服务
+- **MCP HTTP**: `http://localhost:3001` - MCP 协议服务
+- **Web Frontend**: `http://localhost:3002` - Web 界面服务
+
+---
+
+## 🔐 认证方式
+
+### HTTP Header 认证
+所有 API 请求需要在 HTTP Header 中包含以下信息：
+
+```http
+X-PROJECT: project-id
+X-USERNAME: username
+X-PASSWORD: password
+```
+
+### 示例请求
+```bash
+curl -X GET http://localhost:3000/api/projects \
+  -H "X-PROJECT: my-project" \
+  -H "X-USERNAME: user123" \
+  -H "X-PASSWORD: password123"
+```
 
 ## 项目管理 API
 
