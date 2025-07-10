@@ -22,7 +22,6 @@ class TaskMasterApp {
         this.loadConfig();
         this.setupEventListeners();
         this.initializeTabs();
-        this.testConnection();
         this.loadProjects();
     }
 
@@ -63,10 +62,7 @@ class TaskMasterApp {
             this.showAlert('配置已保存', 'success');
         });
 
-        // 连接测试
-        document.getElementById('testConnectionBtn')?.addEventListener('click', () => {
-            this.testConnection();
-        });
+        // 连接测试功能已移除
 
         // 项目管理
         document.getElementById('createProjectBtn')?.addEventListener('click', () => {
@@ -215,72 +211,84 @@ class TaskMasterApp {
      * 显示通知
      */
     showAlert(message, type = 'info') {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type}`;
-        alertDiv.textContent = message;
-        
-        const container = document.querySelector('.tab-pane.active') || document.body;
-        container.insertBefore(alertDiv, container.firstChild);
-        
-        setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.parentNode.removeChild(alertDiv);
-            }
-        }, 3000);
-    }
-
-    /**
-     * 测试连接
-     */
-    async testConnection() {
-        try {
-            const data = await this.apiRequest('/health');
-            
-            const statusIndicator = document.getElementById('statusIndicator');
-            const systemStatus = document.getElementById('systemStatus');
-
-            if (data.success) {
-                if (statusIndicator) {
-                    statusIndicator.textContent = '✅ 已连接';
-                    statusIndicator.className = 'status-indicator status-connected';
-                }
-
-                if (systemStatus) {
-                    systemStatus.innerHTML = `
-                        <div class="alert alert-success">
-                            <strong>✅ 连接成功!</strong><br>
-                            状态: ${data.status}<br>
-                            时间: ${new Date(data.timestamp).toLocaleString()}<br>
-                            版本: ${data.version}
-                        </div>
-                    `;
-                }
-
-                this.showAlert('连接测试成功!', 'success');
-            } else {
-                throw new Error('健康检查失败');
-            }
-        } catch (error) {
-            const statusIndicator = document.getElementById('statusIndicator');
-            const systemStatus = document.getElementById('systemStatus');
-
-            if (statusIndicator) {
-                statusIndicator.textContent = '❌ 连接失败';
-                statusIndicator.className = 'status-indicator alert-error';
-            }
-
-            if (systemStatus) {
-                systemStatus.innerHTML = `
-                    <div class="alert alert-error">
-                        <strong>❌ 连接失败!</strong><br>
-                        错误: ${error.message}
-                    </div>
-                `;
-            }
-
-            this.showAlert(`连接失败: ${error.message}`, 'error');
+        // 创建弹出提示容器（如果不存在）
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                max-width: 350px;
+                pointer-events: none;
+            `;
+            document.body.appendChild(toastContainer);
         }
+
+        // 创建提示元素
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : type === 'warning' ? '#fff3cd' : '#d1ecf1'};
+            color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : type === 'warning' ? '#856404' : '#0c5460'};
+            border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : type === 'warning' ? '#ffeaa7' : '#bee5eb'};
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            pointer-events: auto;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            position: relative;
+            word-wrap: break-word;
+        `;
+
+        toast.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="flex: 1; margin-right: 10px;">${message}</span>
+                <button type="button" style="
+                    background: none;
+                    border: none;
+                    font-size: 18px;
+                    cursor: pointer;
+                    color: inherit;
+                    padding: 0;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                " onclick="this.parentElement.parentElement.remove()">
+                    ×
+                </button>
+            </div>
+        `;
+
+        toastContainer.appendChild(toast);
+
+        // 动画显示
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateX(0)';
+        }, 10);
+
+        // 自动移除提示
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+        }, 5000);
     }
+
+    // 连接测试功能已移除
 
     /**
      * 加载项目列表
@@ -330,12 +338,6 @@ class TaskMasterApp {
                         <button class="btn btn-primary" onclick="app.selectProject('${project.id}')">
                             选择项目
                         </button>
-                        <button class="btn btn-secondary" onclick="app.viewProjectDetails('${project.id}')">
-                            查看详情
-                        </button>
-                        <button class="btn btn-info" onclick="app.downloadIdeConfig('${project.id}')" title="下载IDE配置文件">
-                            📁 IDE配置
-                        </button>
                     </div>
                 </div>
             `;
@@ -358,10 +360,30 @@ class TaskMasterApp {
             projectSelector.textContent = projectId;
         }
 
+        // 更新当前项目指示器
+        this.updateCurrentProjectIndicator(projectId);
+
         // 自动切换到任务标签页
         const taskTab = document.querySelector('[data-tab="tasks"]');
         if (taskTab) {
             taskTab.click();
+        }
+    }
+
+    /**
+     * 更新当前项目指示器
+     */
+    updateCurrentProjectIndicator(projectId) {
+        const indicator = document.getElementById('currentProjectIndicator');
+        const projectName = document.getElementById('currentProjectName');
+
+        if (indicator && projectName) {
+            if (projectId) {
+                projectName.textContent = projectId;
+                indicator.style.display = 'inline-flex';
+            } else {
+                indicator.style.display = 'none';
+            }
         }
     }
 
@@ -639,29 +661,40 @@ class TaskMasterApp {
             return;
         }
 
-        // 按状态分组任务
+        // 按状态分组任务 - 完整的6种状态
         const groupedTasks = {
             'pending': [],
-            'in_progress': [],
+            'in-progress': [],
+            'review': [],
             'done': [],
-            'blocked': []
+            'deferred': [],
+            'cancelled': []
         };
 
         tasks.forEach(task => {
             const status = task.status || 'pending';
-            if (groupedTasks[status]) {
+            // 处理状态名称的兼容性（下划线转连字符）
+            const normalizedStatus = status.replace('_', '-');
+            if (groupedTasks[normalizedStatus]) {
+                groupedTasks[normalizedStatus].push(task);
+            } else if (groupedTasks[status]) {
                 groupedTasks[status].push(task);
+            } else {
+                // 未知状态归类到pending
+                groupedTasks['pending'].push(task);
             }
         });
 
         let html = '';
 
-        // 状态配置
+        // 状态配置 - 完整的6种状态
         const statusConfig = {
-            'pending': { title: '📋 待处理', color: '#ffc107' },
-            'in_progress': { title: '🔄 进行中', color: '#007bff' },
+            'pending': { title: '📋 待处理', color: '#6c757d' },
+            'in-progress': { title: '🔄 进行中', color: '#007bff' },
+            'review': { title: '👀 审核中', color: '#ffc107' },
             'done': { title: '✅ 已完成', color: '#28a745' },
-            'blocked': { title: '🚫 阻塞', color: '#dc3545' }
+            'deferred': { title: '⏸️ 已延期', color: '#fd7e14' },
+            'cancelled': { title: '❌ 已取消', color: '#dc3545' }
         };
 
         Object.keys(statusConfig).forEach(status => {
@@ -671,28 +704,107 @@ class TaskMasterApp {
             if (statusTasks.length > 0) {
                 html += `
                     <div class="task-group">
-                        <div class="task-group-header" style="background-color: ${config.color}">
-                            <h4>${config.title}</h4>
-                            <span class="task-count">${statusTasks.length} 个任务</span>
+                        <div class="task-group-header" style="background-color: ${config.color}" onclick="app.toggleTaskGroup('${status}')">
+                            <div class="header-content">
+                                <h4>${config.title}</h4>
+                                <span class="task-count">${statusTasks.length} 个任务</span>
+                            </div>
+                            <span class="toggle-icon" id="toggle-${status}">▼</span>
                         </div>
-                        <div class="task-list">
+                        <div class="task-list" id="tasks-${status}">
                 `;
 
                 statusTasks.forEach(task => {
+                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                    const completedSubtasks = hasSubtasks ? task.subtasks.filter(st => st.status === 'done').length : 0;
+                    const totalSubtasks = hasSubtasks ? task.subtasks.length : 0;
+                    const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+
+                    const createdDate = task.createdAt ? new Date(task.createdAt).toLocaleDateString('zh-CN') : '';
+                    const updatedDate = task.updatedAt ? new Date(task.updatedAt).toLocaleDateString('zh-CN') : '';
+
                     html += `
                         <div class="task-item" data-task-id="${task.id}">
                             <div class="task-header">
-                                <span class="task-id">#${task.id}</span>
-                                <span class="task-priority priority-${task.priority || 'medium'}">
-                                    ${this.getPriorityText(task.priority)}
-                                </span>
+                                <div class="task-header-left">
+                                    <span class="task-id">#${task.id}</span>
+                                    <span class="task-priority priority-${task.priority || 'medium'}">
+                                        ${this.getPriorityText(task.priority)}
+                                    </span>
+                                    ${task.assignee ? `<span class="task-assignee">👤 ${task.assignee}</span>` : ''}
+                                </div>
+                                <div class="task-header-right">
+                                    ${hasSubtasks ? `<span class="subtask-count">📋 ${completedSubtasks}/${totalSubtasks}</span>` : ''}
+                                    <button class="btn btn-sm btn-outline" onclick="app.toggleTaskDetails('${task.id}')">
+                                        <span id="toggle-task-${task.id}">▼</span> 详情
+                                    </button>
+                                </div>
                             </div>
                             <div class="task-title">${task.title}</div>
                             <div class="task-description">${task.description || ''}</div>
-                            <div class="task-actions">
-                                <button class="btn btn-sm btn-info" onclick="app.viewTaskDetails('${task.id}')">
-                                    查看详情
-                                </button>
+
+                            ${hasSubtasks ? `
+                                <div class="task-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${progress}%"></div>
+                                    </div>
+                                    <span class="progress-text">${progress}% 完成</span>
+                                </div>
+                            ` : ''}
+
+                            ${task.tags && task.tags.length > 0 ? `
+                                <div class="task-tags">
+                                    ${task.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                                </div>
+                            ` : ''}
+
+                            <div class="task-details" id="task-details-${task.id}" style="display: none;">
+                                <div class="task-meta">
+                                    <div class="meta-row">
+                                        <span class="meta-label">创建时间:</span>
+                                        <span class="meta-value">${createdDate}</span>
+                                    </div>
+                                    <div class="meta-row">
+                                        <span class="meta-label">更新时间:</span>
+                                        <span class="meta-value">${updatedDate}</span>
+                                    </div>
+                                    ${task.estimatedHours ? `
+                                        <div class="meta-row">
+                                            <span class="meta-label">预估工时:</span>
+                                            <span class="meta-value">${task.estimatedHours}小时</span>
+                                        </div>
+                                    ` : ''}
+                                    ${task.actualHours ? `
+                                        <div class="meta-row">
+                                            <span class="meta-label">实际工时:</span>
+                                            <span class="meta-value">${task.actualHours}小时</span>
+                                        </div>
+                                    ` : ''}
+                                    ${task.dependencies && task.dependencies.length > 0 ? `
+                                        <div class="meta-row">
+                                            <span class="meta-label">依赖任务:</span>
+                                            <span class="meta-value">${task.dependencies.map(dep => `#${dep}`).join(', ')}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+
+                                ${hasSubtasks ? `
+                                    <div class="subtasks-section">
+                                        <h5>子任务</h5>
+                                        <div class="subtasks-list">
+                                            ${task.subtasks.map(subtask => `
+                                                <div class="subtask-item status-${subtask.status}">
+                                                    <div class="subtask-header">
+                                                        <span class="subtask-status">${this.getStatusIcon(subtask.status)}</span>
+                                                        <span class="subtask-id">#${subtask.id}</span>
+                                                        <span class="subtask-title">${subtask.title}</span>
+                                                    </div>
+                                                    <div class="subtask-description">${subtask.description || ''}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -718,6 +830,49 @@ class TaskMasterApp {
             'low': '低'
         };
         return priorityMap[priority] || '中';
+    }
+
+    /**
+     * 切换任务组的展开/收缩状态
+     */
+    toggleTaskGroup(status) {
+        const tasksContainer = document.getElementById(`tasks-${status}`);
+        const toggleIcon = document.getElementById(`toggle-${status}`);
+
+        if (tasksContainer && toggleIcon) {
+            const isCollapsed = tasksContainer.style.display === 'none';
+            tasksContainer.style.display = isCollapsed ? 'block' : 'none';
+            toggleIcon.textContent = isCollapsed ? '▼' : '▶';
+        }
+    }
+
+    /**
+     * 切换任务详情的展开/收缩状态
+     */
+    toggleTaskDetails(taskId) {
+        const detailsContainer = document.getElementById(`task-details-${taskId}`);
+        const toggleIcon = document.getElementById(`toggle-task-${taskId}`);
+
+        if (detailsContainer && toggleIcon) {
+            const isCollapsed = detailsContainer.style.display === 'none';
+            detailsContainer.style.display = isCollapsed ? 'block' : 'none';
+            toggleIcon.textContent = isCollapsed ? '▲' : '▼';
+        }
+    }
+
+    /**
+     * 获取状态图标
+     */
+    getStatusIcon(status) {
+        const statusIcons = {
+            'pending': '⏳',
+            'in-progress': '🔄',
+            'review': '👀',
+            'done': '✅',
+            'deferred': '⏸️',
+            'cancelled': '❌'
+        };
+        return statusIcons[status] || '📋';
     }
 
     /**
@@ -982,9 +1137,7 @@ class TaskMasterApp {
                         ${pr.description || '暂无描述'}
                     </div>
                     <div class="pr-actions">
-                        <button class="btn btn-sm btn-info" onclick="app.viewPrDetails('${pr.id}')">
-                            查看详情
-                        </button>
+                        <!-- PR操作按钮已移除 -->
                     </div>
                 </div>
             `;
@@ -1020,33 +1173,121 @@ class TaskMasterApp {
         if (!container) return;
 
         if (!crs || crs.length === 0) {
-            container.innerHTML = '<p class="text-center">暂无变更请求</p>';
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>📋 暂无变更请求</h3>
+                    <p>当前项目还没有变更请求</p>
+                </div>
+            `;
             return;
         }
 
-        let html = '<div class="crs-list">';
+        // 状态颜色映射
+        const statusColors = {
+            'pending': '#ffc107',
+            'approved': '#28a745',
+            'rejected': '#dc3545',
+            'implemented': '#6f42c1'
+        };
+
+        // 优先级颜色映射
+        const priorityColors = {
+            'high': '#dc3545',
+            'medium': '#ffc107',
+            'low': '#28a745'
+        };
+
+        let html = `
+            <div class="cr-table-container">
+                <h3>📋 变更请求列表</h3>
+                <div class="table-responsive">
+                    <table class="cr-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>类型</th>
+                                <th>状态</th>
+                                <th>优先级</th>
+                                <th>影响</th>
+                                <th>申请人</th>
+                                <th>负责人</th>
+                                <th>预估工时</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
 
         crs.forEach(cr => {
+            const statusColor = statusColors[cr.status] || '#6c757d';
+            const priorityColor = priorityColors[cr.priority] || '#6c757d';
+            const createdDate = new Date(cr.createdAt).toLocaleDateString('zh-CN');
+
+            // 类型映射
+            const typeMap = {
+                'feature': '功能',
+                'bug': '缺陷',
+                'enhancement': '增强',
+                'removal': '移除'
+            };
+
+            // 状态映射
+            const statusMap = {
+                'pending': '待处理',
+                'approved': '已批准',
+                'rejected': '已拒绝',
+                'implemented': '已实施'
+            };
+
+            // 优先级映射
+            const priorityMap = {
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+
             html += `
-                <div class="cr-item">
-                    <div class="cr-header">
-                        <h4>${cr.title || `变更 #${cr.id}`}</h4>
-                        <span class="cr-id">#${cr.id}</span>
-                    </div>
-                    <div class="cr-description">
-                        ${cr.description || '暂无描述'}
-                    </div>
-                    <div class="cr-actions">
-                        <button class="btn btn-sm btn-info" onclick="app.viewCrDetails('${cr.id}')">
+                <tr>
+                    <td><strong>${cr.id}</strong></td>
+                    <td>
+                        <div class="cr-title">${cr.title}</div>
+                        <div class="cr-description">${cr.description.substring(0, 50)}${cr.description.length > 50 ? '...' : ''}</div>
+                    </td>
+                    <td><span class="badge badge-secondary">${typeMap[cr.type] || cr.type}</span></td>
+                    <td><span class="badge" style="background-color: ${statusColor}; color: white;">${statusMap[cr.status] || cr.status}</span></td>
+                    <td><span class="badge" style="background-color: ${priorityColor}; color: white;">${priorityMap[cr.priority] || cr.priority}</span></td>
+                    <td><span class="badge badge-info">${priorityMap[cr.impact] || cr.impact}</span></td>
+                    <td>${cr.requestedBy}</td>
+                    <td>${cr.assignedTo || '未分配'}</td>
+                    <td>${cr.estimatedEffort ? cr.estimatedEffort + 'h' : '未估算'}</td>
+                    <td>${createdDate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="app.viewCrDetails('${cr.id}')">
                             查看详情
                         </button>
-                    </div>
-                </div>
+                    </td>
+                </tr>
             `;
         });
 
-        html += '</div>';
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
         container.innerHTML = html;
+    }
+
+    /**
+     * 查看变更请求详情
+     */
+    viewCrDetails(crId) {
+        // 这里可以实现查看详情的逻辑
+        this.showAlert(`查看变更请求 ${crId} 的详情功能正在开发中`, 'info');
     }
 
     /**
@@ -1075,7 +1316,7 @@ class TaskMasterApp {
     /**
      * 显示PRD文档
      */
-    displayPrd(prdData, projectId) {
+    async displayPrd(prdData, projectId) {
         const container = document.getElementById('prdContainer');
         if (!container) return;
 
@@ -1083,29 +1324,39 @@ class TaskMasterApp {
 
         if (!prdFiles || prdFiles.length === 0) {
             container.innerHTML = `
-                <div class="text-center">
-                    <p>该项目暂无PRD文档</p>
-                    <p class="text-muted">您可以通过TaskMaster核心工具上传PRD文档</p>
+                <div class="empty-state">
+                    <h3>📄 暂无PRD文档</h3>
+                    <p>该项目还没有PRD文档，您可以通过项目创建时上传或使用TaskMaster核心工具上传PRD文档</p>
                 </div>
             `;
             return;
         }
 
         let html = '<div class="prd-content">';
-        html += '<h3>📄 PRD文档</h3>';
+        html += '<h3>📄 PRD文档列表</h3>';
 
-        // 显示第一个PRD文件的内容
-        const firstFile = prdFiles[0];
-        if (firstFile) {
-            const modifiedDate = new Date(firstFile.lastModified).toLocaleString('zh-CN');
+        // 显示所有PRD文件
+        for (const file of prdFiles) {
+            const modifiedDate = new Date(file.modified).toLocaleString('zh-CN');
+            const fileSize = this.formatFileSize(file.size);
 
             html += `
-                <div class="prd-file-info">
-                    <h4>📄 ${firstFile.name}</h4>
-                    <p class="text-muted">最后修改: ${modifiedDate}</p>
-                </div>
-                <div class="prd-file-content">
-                    <pre style="white-space: pre-wrap; font-family: inherit; background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #dee2e6;">${this.escapeHtml(firstFile.content)}</pre>
+                <div class="prd-file-item">
+                    <div class="prd-file-header">
+                        <h4>📄 ${file.filename}</h4>
+                        <div class="file-meta">
+                            <span class="file-size">${fileSize}</span>
+                            <span class="file-date">修改时间: ${modifiedDate}</span>
+                        </div>
+                    </div>
+                    <div class="prd-file-actions">
+                        <button class="btn btn-primary btn-sm" onclick="app.viewPrdFile('${projectId}', '${file.filename}')">
+                            查看内容
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="app.downloadPrdFile('${projectId}', '${file.filename}')">
+                            下载文件
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -1118,47 +1369,65 @@ class TaskMasterApp {
      * 查看PRD文件内容
      */
     async viewPrdFile(projectId, filename) {
-        const contentId = `prd-content-${filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        const contentDiv = document.getElementById(contentId);
-
-        if (!contentDiv) return;
-
-        // 如果已经显示，则隐藏
-        if (contentDiv.style.display !== 'none') {
-            contentDiv.style.display = 'none';
-            return;
-        }
-
-        contentDiv.innerHTML = '<div class="loading">正在加载文档内容...</div>';
-        contentDiv.style.display = 'block';
-
+        console.log('viewPrdFile called:', projectId, filename);
         try {
-            const response = await fetch(`${this.config.baseUrl}/api/projects/${projectId}/prd/files/${filename}`);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            this.showAlert('正在加载文件内容...', 'info');
+            const response = await this.apiRequest(`/api/projects/${projectId}/prd/files/${filename}`);
+            console.log('API response:', response);
 
-            const data = await response.json();
-            const content = data.data ? data.data.content : data.content || '';
-
-            contentDiv.innerHTML = `
-                <div class="prd-content-display">
-                    <pre style="white-space: pre-wrap; font-family: inherit; background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">${this.escapeHtml(content)}</pre>
+            // 创建模态框显示文件内容
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📄 ${filename}</h3>
+                        <button class="modal-close" onclick="this.parentElement.parentElement.parentElement.remove()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <pre style="white-space: pre-wrap; font-family: inherit; background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #dee2e6; max-height: 500px; overflow-y: auto;">${this.escapeHtml(response.data.content)}</pre>
+                    </div>
                 </div>
             `;
+
+            // 添加点击背景关闭模态框的功能
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+
+            document.body.appendChild(modal);
+            this.showAlert('文件内容加载成功', 'success');
+
         } catch (error) {
-            contentDiv.innerHTML = `<div class="alert alert-error">加载文档内容失败: ${error.message}</div>`;
+            console.error('viewPrdFile error:', error);
+            this.showAlert(`无法加载文件内容: ${error.message}`, 'error');
         }
     }
+
+    /**
+     * 格式化文件大小
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+
 
     /**
      * 下载PRD文件
      */
     downloadPrdFile(projectId, filename) {
-        const url = `${this.config.baseUrl}/api/projects/${projectId}/prd/files/${filename}`;
+        const url = `${this.config.baseUrl}/api/projects/${projectId}/prd/files/${filename}/download`;
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
