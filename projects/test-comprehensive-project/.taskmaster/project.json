@@ -5,24 +5,5 @@
   "version": "1.0.0",
   "createdAt": "2025-01-10T05:00:00.000Z",
   "updatedAt": "2025-01-10T05:00:00.000Z",
-  "status": "active",
-  "metadata": {
-    "projectType": "web-application",
-    "techStack": ["React", "Node.js", "PostgreSQL", "Redis"],
-    "team": ["开发团队", "产品团队", "设计团队"],
-    "priority": "high",
-    "estimatedDuration": "12周",
-    "budget": "500000",
-    "client": "内部项目"
-  },
-  "settings": {
-    "autoGenerateTasks": true,
-    "enablePRTracking": true,
-    "enableCRTracking": true,
-    "notificationSettings": {
-      "email": true,
-      "slack": false,
-      "webhook": false
-    }
-  }
+  "status": "active"
 }

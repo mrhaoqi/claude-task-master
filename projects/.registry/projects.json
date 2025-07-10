@@ -226,13 +226,21 @@
       "createdAt": "2025-01-10T05:00:00.000Z",
       "lastAccessed": "2025-01-10T05:00:00.000Z",
       "status": "active"
+    },
+    "prd-ass-002": {
+      "name": "需求文档助手002",
+      "description": "通过Web页面创建的PRD助手项目",
+      "template": "default",
+      "createdAt": "2025-07-10T06:25:17.142Z",
+      "lastAccessed": "2025-07-10T06:25:17.142Z",
+      "status": "active"
     }
   },
   "metadata": {
-    "totalProjects": 22,
-    "activeProjects": 22,
+    "totalProjects": 23,
+    "activeProjects": 23,
     "version": "1.0.0",
-    "lastUpdated": "2025-01-10T05:00:00.000Z"
+    "lastUpdated": "2025-07-10T06:25:17.142Z"
   },
-  "lastUpdated": "2025-01-10T05:00:00.000Z"
+  "lastUpdated": "2025-07-10T06:25:17.142Z"
 }
