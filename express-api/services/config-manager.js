@@ -11,9 +11,9 @@ class ConfigManager {
   constructor() {
     this.logger = createLogger('config-manager');
     this.cache = getCacheManager();
-    this.configDir = path.resolve(__dirname, '../../config');
+    this.configDir = path.resolve(__dirname, '..');
     this.projectsDir = path.resolve(__dirname, '../../projects');
-    this.globalConfigPath = path.join(this.configDir, 'global-config.json');
+    this.globalConfigPath = path.join(this.configDir, 'config.json');
     this.projectsConfigPath = path.join(this.projectsDir, '.registry', 'projects.json');
     this.templatesConfigPath = path.join(this.projectsDir, '.registry', 'templates.json');
     this.cachePrefix = 'config:';

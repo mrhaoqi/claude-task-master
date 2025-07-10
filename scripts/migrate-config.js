@@ -5,8 +5,8 @@
 
 // 📋 具体功能
 // 配置结构迁移
-// 从旧的项目级配置（ .taskmaster/config.json）迁移到全局配置
-// 创建新的 config/global-config.json和 projects/.registry/projects.json
+// 从旧的项目级配置（ .taskmaster/config.json）迁移到Express API配置
+// 创建新的 config/express-api-config.json和 projects/.registry/projects.json
 // 项目发现与注册
 // 扫描 projects/目录下的所有现有项目
 // 自动将发现的项目注册到新的配置系统中
@@ -32,9 +32,9 @@ const __dirname = path.dirname(__filename);
 class ConfigMigration {
   constructor() {
     this.projectsDir = path.resolve(__dirname, '../projects');
-    this.configDir = path.resolve(__dirname, '../config');
+    this.configDir = path.resolve(__dirname, '../express-api');
     this.projectsRegistryDir = path.resolve(__dirname, '../projects/.registry');
-    this.globalConfigPath = path.join(this.configDir, 'global-config.json');
+    this.globalConfigPath = path.join(this.configDir, 'config.json');
     this.projectsConfigPath = path.join(this.projectsRegistryDir, 'projects.json');
     this.templatesConfigPath = path.join(this.projectsRegistryDir, 'templates.json');
   }

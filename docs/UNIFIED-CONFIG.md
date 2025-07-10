@@ -21,9 +21,12 @@ TaskMaster 现在使用统一的配置文件系统，所有配置都集中在一
 claude-task-master/
 ├── .env                    # 统一配置文件 (不提交到git)
 ├── .env.example           # 配置模板 (提交到git)
-├── config/
-│   ├── global-config.json # 全局AI和系统配置
-│   └── projects.json      # 项目注册表
+├── express-api/
+│   ├── config.json             # Express API适配器配置
+│   └── ...
+├── projects/
+│   └── .registry/
+│       └── projects.json       # 项目注册表
 └── projects/
     └── {project-id}/
         └── .taskmaster/
@@ -73,8 +76,8 @@ LOG_LEVEL=debug
 - 服务器配置
 - 环境设置
 
-### 2. 全局配置 (config/global-config.json)
-- AI模型配置
+### 2. Express API配置 (express-api/config.json)
+- Express API适配器配置
 - 默认设置
 - 系统参数
 
