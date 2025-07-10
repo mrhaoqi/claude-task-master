@@ -193,21 +193,8 @@ class ProjectManager {
     async initializeProjectData(projectPath, template) {
         const taskmasterPath = path.join(projectPath, '.taskmaster');
 
-        // 初始化配置文件（兼容原始脚本）
-        const globalConfig = this.configManager.getGlobalConfig();
-        const legacyConfig = {
-            ai: globalConfig.ai || {},
-            project: {
-                name: path.basename(projectPath),
-                description: '',
-                template: template || 'default'
-            },
-            features: globalConfig.features || {},
-            logging: globalConfig.logging || {}
-        };
-
-        const configPath = path.join(taskmasterPath, 'config.json');
-        await fs.writeFile(configPath, JSON.stringify(legacyConfig, null, 2));
+        // 注意：不再创建项目级config.json，使用全局配置
+        // 项目信息存储在全局projects.json中
 
         // 初始化空的任务文件
         const tasksData = {
@@ -237,6 +224,27 @@ class ProjectManager {
 
         const statePath = path.join(taskmasterPath, 'state.json');
         await fs.writeFile(statePath, JSON.stringify(stateData, null, 2));
+
+        // 初始化产品需求文件
+        const requirementsData = {
+            requirements: [],
+            metadata: {
+                version: "1.0.0",
+                lastUpdated: new Date().toISOString(),
+                sourceFile: null,
+                extractionMethod: null,
+                totalRequirements: 0
+            }
+        };
+
+        const requirementsDir = path.join(taskmasterPath, 'product-requirements');
+        await fs.mkdir(requirementsDir, { recursive: true });
+        const requirementsPath = path.join(requirementsDir, 'requirements.json');
+        await fs.writeFile(requirementsPath, JSON.stringify(requirementsData, null, 2));
+
+        // 初始化变更请求目录
+        const changeRequestsDir = path.join(taskmasterPath, 'change-requests');
+        await fs.mkdir(changeRequestsDir, { recursive: true });
 
         // 根据模板创建初始文件
         if (template !== 'default') {

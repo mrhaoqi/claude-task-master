@@ -7,6 +7,166 @@ import { createLogger } from '../utils/logger.js';
 import ConfigManager from './config-manager.js';
 import { generateObjectService } from '../../scripts/modules/ai-services-unified.js';
 
+/**
+ * 统一的项目路径管理工具
+ * 确保所有数据操作都使用正确的 projects/{project-id}/.taskmaster/ 路径结构
+ */
+class ProjectPathManager {
+    constructor() {
+        this.projectsRoot = path.resolve(process.cwd(), 'projects');
+    }
+
+    /**
+     * 获取项目根目录路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} 项目根目录路径
+     */
+    getProjectRoot(projectId) {
+        if (!projectId) {
+            throw new Error('Project ID is required');
+        }
+        return path.join(this.projectsRoot, projectId);
+    }
+
+    /**
+     * 获取项目的.taskmaster目录路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} .taskmaster目录路径
+     */
+    getTaskmasterDir(projectId) {
+        return path.join(this.getProjectRoot(projectId), '.taskmaster');
+    }
+
+    /**
+     * 获取任务文件路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} tasks.json文件路径
+     */
+    getTasksPath(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'tasks', 'tasks.json');
+    }
+
+    /**
+     * 获取PRD文档路径
+     * @param {string} projectId - 项目ID
+     * @param {string} [filename='prd.txt'] - PRD文件名
+     * @returns {string} PRD文档路径
+     */
+    getPrdPath(projectId, filename = 'prd.txt') {
+        return path.join(this.getTaskmasterDir(projectId), 'docs', filename);
+    }
+
+    /**
+     * 获取产品需求文件路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} requirements.json文件路径
+     */
+    getRequirementsPath(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'product-requirements', 'requirements.json');
+    }
+
+    /**
+     * 获取变更请求目录路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} 变更请求目录路径
+     */
+    getChangeRequestsDir(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'change-requests');
+    }
+
+    /**
+     * 获取报告目录路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} 报告目录路径
+     */
+    getReportsDir(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'reports');
+    }
+
+    /**
+     * 获取复杂度报告文件路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} 复杂度报告文件路径
+     */
+    getComplexityReportPath(projectId) {
+        return path.join(this.getReportsDir(projectId), 'task-complexity-report.json');
+    }
+
+    /**
+     * 获取项目状态文件路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} state.json文件路径
+     */
+    getStatePath(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'state.json');
+    }
+
+    /**
+     * 获取日志目录路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} 日志目录路径
+     */
+    getLogsDir(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'logs');
+    }
+
+    /**
+     * 获取模板目录路径
+     * @param {string} projectId - 项目ID
+     * @returns {string} 模板目录路径
+     */
+    getTemplatesDir(projectId) {
+        return path.join(this.getTaskmasterDir(projectId), 'templates');
+    }
+
+    /**
+     * 确保项目目录结构存在
+     * @param {string} projectId - 项目ID
+     */
+    async ensureProjectStructure(projectId) {
+        const dirs = [
+            this.getTaskmasterDir(projectId),
+            path.join(this.getTaskmasterDir(projectId), 'tasks'),
+            path.join(this.getTaskmasterDir(projectId), 'docs'),
+            path.join(this.getTaskmasterDir(projectId), 'product-requirements'),
+            this.getChangeRequestsDir(projectId),
+            this.getReportsDir(projectId),
+            this.getLogsDir(projectId),
+            this.getTemplatesDir(projectId)
+        ];
+
+        for (const dir of dirs) {
+            await fs.mkdir(dir, { recursive: true });
+        }
+    }
+
+    /**
+     * 检查项目是否存在
+     * @param {string} projectId - 项目ID
+     * @returns {boolean} 项目是否存在
+     */
+    async projectExists(projectId) {
+        try {
+            const projectRoot = this.getProjectRoot(projectId);
+            const stats = await fs.stat(projectRoot);
+            return stats.isDirectory();
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * 将原始TaskMaster的projectRoot转换为多项目结构的路径
+     * 这个方法用于适配原始脚本，确保它们能在多项目环境中正确工作
+     * @param {string} projectId - 项目ID
+     * @returns {string} 适配后的项目根路径（指向项目目录，而不是.taskmaster目录）
+     */
+    getLegacyProjectRoot(projectId) {
+        // 原始脚本期望projectRoot指向包含.taskmaster目录的项目根目录
+        return this.getProjectRoot(projectId);
+    }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -39,6 +199,7 @@ class CoreAdapter {
         this.logger = logger;
         this.scriptsPath = path.join(__dirname, '../../scripts');
         this.configManager = new ConfigManager();
+        this.pathManager = new ProjectPathManager();
     }
 
     /**
@@ -126,34 +287,67 @@ class CoreAdapter {
     }
 
     /**
-     * 使用新的配置系统解析PRD并生成任务
+     * 获取项目路径 - 统一的项目路径获取方法
+     * @param {string} projectId - 项目ID
+     * @returns {string} 项目根路径（用于传递给原始脚本）
      */
-    async parsePRD(projectPath, prdPath, numTasks, options = {}) {
+    getProjectPath(projectId) {
+        if (!projectId) {
+            throw new Error('Project ID is required');
+        }
+        return this.pathManager.getLegacyProjectRoot(projectId);
+    }
+
+    /**
+     * 确保项目目录结构存在
+     * @param {string} projectId - 项目ID
+     */
+    async ensureProjectStructure(projectId) {
+        await this.pathManager.ensureProjectStructure(projectId);
+    }
+
+    /**
+     * 使用新的配置系统解析PRD并生成任务
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string} prdPath - PRD文件路径（可选）
+     * @param {number} numTasks - 生成任务数量
+     * @param {Object} options - 选项
+     */
+    async parsePRD(projectId, prdPath, numTasks, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            // 使用统一的路径管理器获取路径
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
             let actualPrdPath = prdPath;
             let prdContent = '';
+
+            // 确保项目目录结构存在
+            await this.ensureProjectStructure(projectId);
 
             // 处理PRD内容
             if (options.prdContent && !prdPath) {
                 // 如果提供了内容而不是路径，创建临时文件
                 const tempFileName = `temp_prd_${Date.now()}.txt`;
-                actualPrdPath = path.join(projectPath, '.taskmaster', 'docs', tempFileName);
-
-                // 确保docs目录存在
-                const docsDir = path.dirname(actualPrdPath);
-                if (!fsSync.existsSync(docsDir)) {
-                    fsSync.mkdirSync(docsDir, { recursive: true });
-                }
+                actualPrdPath = this.pathManager.getPrdPath(projectId, tempFileName);
 
                 // 写入临时文件
                 fsSync.writeFileSync(actualPrdPath, options.prdContent, 'utf8');
                 prdContent = options.prdContent;
             } else if (actualPrdPath) {
+                // 如果提供的是相对路径，转换为绝对路径
+                if (!path.isAbsolute(actualPrdPath)) {
+                    actualPrdPath = this.pathManager.getPrdPath(projectId, actualPrdPath);
+                }
                 // 读取PRD文件内容
                 prdContent = fsSync.readFileSync(actualPrdPath, 'utf8');
             } else {
-                throw new Error('Either prdPath or prdContent must be provided');
+                // 使用默认PRD路径
+                actualPrdPath = this.pathManager.getPrdPath(projectId);
+                if (fsSync.existsSync(actualPrdPath)) {
+                    prdContent = fsSync.readFileSync(actualPrdPath, 'utf8');
+                } else {
+                    throw new Error('Either prdPath or prdContent must be provided, or default prd.txt must exist');
+                }
             }
 
             // 检查并读取现有任务文件
@@ -237,7 +431,7 @@ ${prdContent}
                 research: options.research || false
             });
 
-            // 调用AI服务
+            // 调用AI服务，传递正确的项目根路径以确保使用正确的配置
             const aiResponse = await generateObjectService({
                 role: options.research ? 'research' : 'main',
                 schema: prdResponseSchema,
@@ -245,10 +439,93 @@ ${prdContent}
                 systemPrompt,
                 prompt: userPrompt,
                 commandName: 'parse-prd',
-                outputType: 'json'
+                outputType: 'json',
+                projectRoot: process.cwd() // 传递当前工作目录作为项目根路径
             });
 
-            const generatedTasks = aiResponse.data || aiResponse;
+            let generatedTasks = aiResponse.data || aiResponse;
+
+            // 处理AI服务返回的嵌套数据结构
+            // 如果返回的是 { mainResult: { tasks: [...] } } 格式，提取mainResult
+            if (generatedTasks && generatedTasks.mainResult && generatedTasks.mainResult.tasks) {
+                this.logger.debug('Extracting tasks from mainResult structure');
+                generatedTasks = generatedTasks.mainResult;
+            }
+
+            // 添加调试日志来查看AI服务返回的数据结构
+            this.logger.debug('AI service response structure', {
+                hasData: !!aiResponse.data,
+                responseType: typeof aiResponse,
+                generatedTasksType: typeof generatedTasks,
+                generatedTasksKeys: generatedTasks ? Object.keys(generatedTasks) : null,
+                hasTasks: generatedTasks && generatedTasks.tasks,
+                tasksType: generatedTasks && generatedTasks.tasks ? typeof generatedTasks.tasks : null,
+                isTasksArray: generatedTasks && Array.isArray(generatedTasks.tasks)
+            });
+
+            // 处理生成的任务数据，确保ID连续性
+            if (!generatedTasks || !Array.isArray(generatedTasks.tasks)) {
+                this.logger.error('AI service data structure validation failed', {
+                    generatedTasks: JSON.stringify(generatedTasks, null, 2)
+                });
+                throw new Error('AI service returned unexpected data structure');
+            }
+
+            let currentId = nextId;
+            const taskMap = new Map();
+            const processedNewTasks = generatedTasks.tasks.map((task) => {
+                const newId = currentId++;
+                taskMap.set(task.id, newId);
+                return {
+                    ...task,
+                    id: newId,
+                    status: 'pending',
+                    priority: task.priority || 'medium',
+                    dependencies: Array.isArray(task.dependencies) ? task.dependencies : [],
+                    subtasks: []
+                };
+            });
+
+            // 更新依赖关系
+            processedNewTasks.forEach((task) => {
+                if (Array.isArray(task.dependencies)) {
+                    task.dependencies = task.dependencies.map((depId) => taskMap.get(depId) || depId);
+                }
+            });
+
+            // 合并现有任务和新任务
+            const finalTasks = options.append ? [...existingTasks, ...processedNewTasks] : processedNewTasks;
+
+            // 读取现有文件以保留其他标签
+            let outputData = {};
+            if (await this._fileExists(tasksPath)) {
+                try {
+                    const existingFileContent = await fs.readFile(tasksPath, 'utf8');
+                    outputData = JSON.parse(existingFileContent);
+                } catch (error) {
+                    // 如果无法读取现有文件，从空对象开始
+                    outputData = {};
+                }
+            }
+
+            // 更新目标标签，保留其他标签
+            outputData['main'] = {
+                tasks: finalTasks,
+                metadata: {
+                    created: outputData['main']?.metadata?.created || new Date().toISOString(),
+                    updated: new Date().toISOString(),
+                    description: 'Main tasks context'
+                }
+            };
+
+            // 写入完整的数据结构到文件
+            await fs.writeFile(tasksPath, JSON.stringify(outputData, null, 2));
+
+            this.logger.info(`Successfully ${options.append ? 'appended' : 'generated'} ${processedNewTasks.length} tasks in ${tasksPath}`, {
+                projectPath,
+                numTasks: processedNewTasks.length,
+                append: options.append
+            });
 
             // 清理临时文件
             if (options.prdContent && !prdPath && fsSync.existsSync(actualPrdPath)) {
@@ -266,25 +543,34 @@ ${prdContent}
             return {
                 success: true,
                 tasksPath,
-                data: generatedTasks,
+                data: {
+                    ...generatedTasks,
+                    tasks: processedNewTasks
+                },
                 telemetryData: aiResponse.telemetryData || null,
                 tagInfo: { tag: 'main', isNewTag: existingTasks.length === 0 }
             };
 
         } catch (error) {
-            this.logger.error('PRD parsing failed', { error: error.message, projectPath });
+            this.logger.error('PRD parsing failed', { error: error.message, projectId });
             throw error;
         }
     }
 
     /**
      * 适配现有的addTask函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string} title - 任务标题
+     * @param {string} description - 任务描述
+     * @param {string} priority - 任务优先级
+     * @param {Object} options - 选项
      */
-    async addTask(projectPath, title, description, priority = 'medium', options = {}) {
+    async addTask(projectId, title, description, priority = 'medium', options = {}) {
         let tempConfigPath = null;
 
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
 
             // 准备addTask函数的参数
             const prompt = `${title}\n\n${description}`;
@@ -341,7 +627,7 @@ ${prdContent}
 
             return result;
         } catch (error) {
-            this.logger.error('Add task failed', { error: error.message, projectPath });
+            this.logger.error('Add task failed', { error: error.message, projectId });
             throw error;
         } finally {
             // 清理临时配置文件
@@ -358,10 +644,13 @@ ${prdContent}
 
     /**
      * 适配现有的listTasks函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {Object} options - 选项
      */
-    async listTasks(projectPath, options = {}) {
+    async listTasks(projectId, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
 
             // 准备listTasks函数的参数
             const statusFilter = options.statusFilter || null;
@@ -388,26 +677,31 @@ ${prdContent}
 
             return result;
         } catch (error) {
-            this.logger.error('List tasks failed', { error: error.message, projectPath });
+            this.logger.error('List tasks failed', { error: error.message, projectId });
             throw error;
         }
     }
 
     /**
      * 适配现有的expandTask函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 任务ID
+     * @param {number} numSubtasks - 子任务数量
+     * @param {Object} options - 选项
      */
-    async expandTask(projectPath, taskId, numSubtasks, options = {}) {
+    async expandTask(projectId, taskId, numSubtasks, options = {}) {
         let tempConfigPath = null;
 
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
 
             // 获取全局配置并转换为原始脚本期望的格式
             const globalConfig = await this.configManager.getGlobalConfig();
             const legacyConfig = this._convertToLegacyConfig(globalConfig);
 
             // 临时创建配置文件供原始脚本使用
-            tempConfigPath = path.join(projectPath, '.taskmaster', 'config.json');
+            tempConfigPath = path.join(this.pathManager.getTaskmasterDir(projectId), 'config.json');
             await this._writeJSON(tempConfigPath, legacyConfig);
 
             this.logger.debug(`Created temporary config file for expandTask: ${tempConfigPath}`);
@@ -464,7 +758,7 @@ ${prdContent}
 
             return result;
         } catch (error) {
-            this.logger.error('Expand task failed', { error: error.message, projectPath, taskId });
+            this.logger.error('Expand task failed', { error: error.message, projectId, taskId });
             throw error;
         } finally {
             // 清理临时配置文件
@@ -481,10 +775,15 @@ ${prdContent}
 
     /**
      * 适配现有的setTaskStatus函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 任务ID
+     * @param {string} status - 任务状态
+     * @param {Object} options - 选项
      */
-    async setTaskStatus(projectPath, taskId, status, options = {}) {
+    async setTaskStatus(projectId, taskId, status, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
 
             const adaptedOptions = {
                 ...options,
@@ -501,17 +800,22 @@ ${prdContent}
 
             return result;
         } catch (error) {
-            this.logger.error('Set task status failed', { error: error.message, projectPath });
+            this.logger.error('Set task status failed', { error: error.message, projectId });
             throw error;
         }
     }
 
     /**
      * 适配现有的updateTaskById函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 任务ID
+     * @param {Object} updates - 更新内容
+     * @param {Object} options - 选项
      */
-    async updateTaskById(projectPath, taskId, updates, options = {}) {
+    async updateTaskById(projectId, taskId, updates, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
 
             const adaptedOptions = {
                 ...options,
@@ -522,7 +826,7 @@ ${prdContent}
 
             // 如果只是状态更新，使用setTaskStatus函数
             if (updates.status && Object.keys(updates).length === 1) {
-                return await this.setTaskStatus(projectPath, taskId, updates.status, adaptedOptions);
+                return await this.setTaskStatus(projectId, taskId, updates.status, adaptedOptions);
             }
 
             // 对于其他更新，构建一个prompt描述更新内容
@@ -533,7 +837,7 @@ ${prdContent}
 
             return result;
         } catch (error) {
-            this.logger.error('Update task failed', { error: error.message, projectPath });
+            this.logger.error('Update task failed', { error: error.message, projectId });
             throw error;
         }
     }
@@ -562,10 +866,14 @@ ${prdContent}
 
     /**
      * 适配现有的removeTask函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 任务ID
+     * @param {Object} options - 选项
      */
-    async removeTask(projectPath, taskId, options = {}) {
+    async removeTask(projectId, taskId, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
             
             const adaptedOptions = {
                 ...options,
@@ -579,19 +887,22 @@ ${prdContent}
             
             return result;
         } catch (error) {
-            this.logger.error('Remove task failed', { error: error.message, projectPath });
+            this.logger.error('Remove task failed', { error: error.message, projectId });
             throw error;
         }
     }
 
     /**
      * 适配现有的generateTaskFiles函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {Object} options - 选项
      */
-    async generateTaskFiles(projectPath, options = {}) {
+    async generateTaskFiles(projectId, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
-            const outputDir = path.join(projectPath, '.taskmaster', 'tasks');
-            
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+            const outputDir = path.join(this.pathManager.getTaskmasterDir(projectId), 'tasks');
+
             const adaptedOptions = {
                 ...options,
                 projectRoot: projectPath,
@@ -600,21 +911,25 @@ ${prdContent}
 
             const { default: generateTaskFiles } = await import('../../scripts/modules/task-manager/generate-task-files.js');
             const result = await generateTaskFiles(tasksPath, outputDir, adaptedOptions);
-            
+
             return result;
         } catch (error) {
-            this.logger.error('Generate task files failed', { error: error.message, projectPath });
+            this.logger.error('Generate task files failed', { error: error.message, projectId });
             throw error;
         }
     }
 
     /**
      * 适配现有的analyzeTaskComplexity函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 任务ID
+     * @param {Object} options - 选项
      */
-    async analyzeTaskComplexity(projectPath, taskId, options = {}) {
+    async analyzeTaskComplexity(projectId, taskId, options = {}) {
         try {
-            const tasksPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
-            
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
             const adaptedOptions = {
                 ...options,
                 projectRoot: projectPath,
@@ -624,13 +939,14 @@ ${prdContent}
 
             const { default: analyzeTaskComplexity } = await import('../../scripts/modules/task-manager/analyze-task-complexity.js');
             const result = await analyzeTaskComplexity(tasksPath, taskId, adaptedOptions);
-            
+
             return result;
         } catch (error) {
-            this.logger.error('Analyze task complexity failed', { error: error.message, projectPath });
+            this.logger.error('Analyze task complexity failed', { error: error.message, projectId });
             throw error;
         }
     }
 }
 
 export default CoreAdapter;
+export { ProjectPathManager };

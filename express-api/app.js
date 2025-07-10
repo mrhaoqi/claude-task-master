@@ -12,6 +12,8 @@ dotenv.config();
 import projectRoutes from './routes/projects.js';
 import taskRoutes from './routes/tasks.js';
 import prdRoutes from './routes/prd.js';
+import prsRoutes from './routes/prs.js';
+import crsRoutes from './routes/crs.js';
 import fileRoutes from './routes/files.js';
 import globalRoutes from './routes/global.js';
 import mcpRoutes from './routes/mcp.js';
@@ -112,6 +114,8 @@ class TaskMasterServer {
         this.app.use('/api/projects', projectRoutes);
         this.app.use('/api/projects/:projectId/tasks', taskRoutes);
         this.app.use('/api/projects/:projectId/prd', prdRoutes);
+        this.app.use('/api/projects/:projectId/prs', prsRoutes);
+        this.app.use('/api/projects/:projectId/crs', crsRoutes);
         this.app.use('/api/projects/:projectId/files', fileRoutes);
         this.app.use('/api/projects/:projectId/scope', scopeManagementRoutes);
 
