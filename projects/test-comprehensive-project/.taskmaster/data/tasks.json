@@ -1,0 +1,149 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "项目初始化和环境搭建",
+      "description": "设置项目基础架构，包括代码仓库、开发环境、CI/CD流水线等",
+      "status": "done",
+      "priority": "high",
+      "dependencies": [],
+      "details": "1. 创建Git仓库\n2. 设置开发环境\n3. 配置CI/CD\n4. 设置代码规范",
+      "testStrategy": "验证环境配置正确，CI/CD流水线正常运行",
+      "createdAt": "2025-01-01T09:00:00.000Z",
+      "updatedAt": "2025-01-03T17:00:00.000Z",
+      "assignee": "张三",
+      "estimatedHours": 16,
+      "actualHours": 18,
+      "subtasks": [
+        {
+          "id": 101,
+          "title": "创建Git仓库",
+          "description": "在GitHub上创建项目仓库",
+          "status": "done",
+          "priority": "high",
+          "createdAt": "2025-01-01T09:00:00.000Z",
+          "updatedAt": "2025-01-01T10:00:00.000Z"
+        },
+        {
+          "id": 102,
+          "title": "配置开发环境",
+          "description": "设置本地开发环境和依赖",
+          "status": "done",
+          "priority": "high",
+          "createdAt": "2025-01-01T10:00:00.000Z",
+          "updatedAt": "2025-01-02T16:00:00.000Z"
+        },
+        {
+          "id": 103,
+          "title": "设置CI/CD流水线",
+          "description": "配置自动化构建和部署",
+          "status": "done",
+          "priority": "medium",
+          "createdAt": "2025-01-02T09:00:00.000Z",
+          "updatedAt": "2025-01-03T17:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "数据库设计和实现",
+      "description": "设计数据库架构，创建表结构，实现数据访问层",
+      "status": "in-progress",
+      "priority": "high",
+      "dependencies": [1],
+      "details": "1. 设计ER图\n2. 创建数据库表\n3. 实现ORM模型\n4. 编写数据访问接口",
+      "testStrategy": "单元测试数据访问层，集成测试数据库操作",
+      "createdAt": "2025-01-03T09:00:00.000Z",
+      "updatedAt": "2025-01-08T15:30:00.000Z",
+      "assignee": "李四",
+      "estimatedHours": 24,
+      "actualHours": 16,
+      "subtasks": [
+        {
+          "id": 201,
+          "title": "设计数据库ER图",
+          "description": "设计完整的数据库实体关系图",
+          "status": "done",
+          "priority": "high",
+          "createdAt": "2025-01-03T09:00:00.000Z",
+          "updatedAt": "2025-01-04T17:00:00.000Z"
+        },
+        {
+          "id": 202,
+          "title": "创建数据库表结构",
+          "description": "根据ER图创建实际的数据库表",
+          "status": "in-progress",
+          "priority": "high",
+          "createdAt": "2025-01-04T09:00:00.000Z",
+          "updatedAt": "2025-01-08T15:30:00.000Z"
+        },
+        {
+          "id": 203,
+          "title": "实现ORM模型",
+          "description": "使用Sequelize实现数据模型",
+          "status": "pending",
+          "priority": "medium",
+          "createdAt": "2025-01-05T09:00:00.000Z",
+          "updatedAt": "2025-01-05T09:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "用户认证系统开发",
+      "description": "实现用户注册、登录、权限管理等认证功能",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [2],
+      "details": "1. 实现用户注册\n2. 实现用户登录\n3. JWT token管理\n4. 权限控制中间件",
+      "testStrategy": "功能测试认证流程，安全测试权限控制",
+      "createdAt": "2025-01-05T09:00:00.000Z",
+      "updatedAt": "2025-01-05T09:00:00.000Z",
+      "assignee": "王五",
+      "estimatedHours": 20,
+      "actualHours": 0,
+      "subtasks": []
+    },
+    {
+      "id": 4,
+      "title": "任务管理模块开发",
+      "description": "实现任务的CRUD操作，状态管理，依赖关系等核心功能",
+      "status": "blocked",
+      "priority": "high",
+      "dependencies": [2, 3],
+      "details": "1. 任务CRUD接口\n2. 任务状态管理\n3. 任务依赖处理\n4. 任务搜索和过滤",
+      "testStrategy": "单元测试各个接口，集成测试任务流程",
+      "createdAt": "2025-01-06T09:00:00.000Z",
+      "updatedAt": "2025-01-06T09:00:00.000Z",
+      "assignee": "赵六",
+      "estimatedHours": 32,
+      "actualHours": 0,
+      "subtasks": []
+    },
+    {
+      "id": 5,
+      "title": "前端界面开发",
+      "description": "开发React前端界面，实现用户交互功能",
+      "status": "deferred",
+      "priority": "medium",
+      "dependencies": [3, 4],
+      "details": "1. 设计UI组件\n2. 实现页面路由\n3. 状态管理\n4. API集成",
+      "testStrategy": "组件测试，端到端测试用户流程",
+      "createdAt": "2025-01-07T09:00:00.000Z",
+      "updatedAt": "2025-01-07T09:00:00.000Z",
+      "assignee": "孙七",
+      "estimatedHours": 40,
+      "actualHours": 0,
+      "subtasks": []
+    }
+  ],
+  "metadata": {
+    "totalTasks": 5,
+    "completedTasks": 1,
+    "inProgressTasks": 1,
+    "pendingTasks": 1,
+    "blockedTasks": 1,
+    "deferredTasks": 1,
+    "lastUpdated": "2025-01-10T05:00:00.000Z"
+  }
+}

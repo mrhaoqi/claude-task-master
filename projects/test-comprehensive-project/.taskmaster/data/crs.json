@@ -1,0 +1,135 @@
+{
+  "crs": [
+    {
+      "id": 1,
+      "type": "scope_expansion",
+      "title": "增加移动端支持",
+      "description": "客户要求增加移动端App支持，需要扩展项目范围",
+      "status": "approved",
+      "priority": "high",
+      "reason": "市场需求变化，需要支持移动端用户",
+      "impact": "增加开发工作量约30%，需要额外的移动端开发资源",
+      "relatedRequirements": ["REQ-001", "REQ-002"],
+      "relatedTasks": [5],
+      "requestedBy": "产品经理",
+      "approvedBy": "项目经理",
+      "createdAt": "2025-01-05T10:00:00.000Z",
+      "updatedAt": "2025-01-06T14:00:00.000Z",
+      "approvedAt": "2025-01-06T14:00:00.000Z",
+      "implementedAt": null,
+      "estimatedEffort": "4周",
+      "actualEffort": null,
+      "budgetImpact": "+150000",
+      "scheduleImpact": "+4周",
+      "riskAssessment": "中等风险，需要招聘移动端开发人员",
+      "mitigation": "提前开始招聘，考虑外包部分工作",
+      "comments": [
+        {
+          "author": "产品经理",
+          "content": "这是客户的强烈要求，对项目成功很重要",
+          "timestamp": "2025-01-05T10:30:00.000Z"
+        },
+        {
+          "author": "技术负责人",
+          "content": "技术上可行，但需要额外资源",
+          "timestamp": "2025-01-05T15:00:00.000Z"
+        },
+        {
+          "author": "项目经理",
+          "content": "已批准，将调整项目计划",
+          "timestamp": "2025-01-06T14:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "requirement_change",
+      "title": "修改用户认证方式",
+      "description": "将原有的邮箱密码认证改为支持第三方OAuth登录",
+      "status": "pending",
+      "priority": "medium",
+      "reason": "提升用户体验，降低注册门槛",
+      "impact": "需要重新设计认证模块，影响用户管理相关功能",
+      "relatedRequirements": ["REQ-003"],
+      "relatedTasks": [3],
+      "requestedBy": "UX设计师",
+      "approvedBy": null,
+      "createdAt": "2025-01-08T09:00:00.000Z",
+      "updatedAt": "2025-01-09T16:00:00.000Z",
+      "approvedAt": null,
+      "implementedAt": null,
+      "estimatedEffort": "1.5周",
+      "actualEffort": null,
+      "budgetImpact": "+25000",
+      "scheduleImpact": "+1周",
+      "riskAssessment": "低风险，技术成熟",
+      "mitigation": "使用成熟的OAuth库，降低开发风险",
+      "comments": [
+        {
+          "author": "UX设计师",
+          "content": "用户调研显示大家更喜欢第三方登录",
+          "timestamp": "2025-01-08T09:30:00.000Z"
+        },
+        {
+          "author": "开发工程师",
+          "content": "需要评估对现有代码的影响",
+          "timestamp": "2025-01-08T14:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "task_modification",
+      "title": "调整数据库架构设计",
+      "description": "根据性能测试结果，需要优化数据库表结构和索引",
+      "status": "rejected",
+      "priority": "low",
+      "reason": "性能测试发现查询效率不够理想",
+      "impact": "需要重构部分数据访问层代码",
+      "relatedRequirements": ["REQ-004"],
+      "relatedTasks": [2],
+      "requestedBy": "性能测试工程师",
+      "approvedBy": null,
+      "createdAt": "2025-01-09T11:00:00.000Z",
+      "updatedAt": "2025-01-10T10:00:00.000Z",
+      "approvedAt": null,
+      "rejectedAt": "2025-01-10T10:00:00.000Z",
+      "implementedAt": null,
+      "estimatedEffort": "2周",
+      "actualEffort": null,
+      "budgetImpact": "+40000",
+      "scheduleImpact": "+1.5周",
+      "riskAssessment": "中等风险，可能影响现有功能",
+      "mitigation": "充分测试，分阶段实施",
+      "rejectionReason": "当前性能已满足需求，暂不需要优化",
+      "comments": [
+        {
+          "author": "性能测试工程师",
+          "content": "建议优化几个关键查询的性能",
+          "timestamp": "2025-01-09T11:30:00.000Z"
+        },
+        {
+          "author": "技术负责人",
+          "content": "当前性能指标已达标，建议后续版本考虑",
+          "timestamp": "2025-01-10T09:30:00.000Z"
+        },
+        {
+          "author": "项目经理",
+          "content": "考虑到时间和成本，暂不实施此变更",
+          "timestamp": "2025-01-10T10:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "totalCRs": 3,
+    "pendingCRs": 1,
+    "approvedCRs": 1,
+    "rejectedCRs": 1,
+    "implementedCRs": 0,
+    "averageProcessingTime": "2天",
+    "totalBudgetImpact": "+215000",
+    "totalScheduleImpact": "+6.5周",
+    "lastUpdated": "2025-01-10T05:00:00.000Z"
+  }
+}
