@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 import { createLogger } from '../utils/logger.js';
-import CoreAdapter from '../services/core-adapter.js';
+import CoreAdapter, { ProjectPathManager } from '../services/core-adapter.js';
 import { projectValidator } from '../middleware/project-validator.js';
 import { prdFileLockMiddleware } from '../middleware/file-lock.js';
 import { ValidationError } from '../middleware/error-handler.js';
@@ -10,6 +10,60 @@ import { ValidationError } from '../middleware/error-handler.js';
 const router = express.Router({ mergeParams: true });
 const logger = createLogger('prd-router');
 const coreAdapter = new CoreAdapter();
+const pathManager = new ProjectPathManager();
+
+/**
+ * 自动查找PRD文档
+ * @param {string} projectId - 项目ID
+ * @param {string} [prdFilePath] - 可选的PRD文件路径
+ * @returns {string} PRD文档的完整路径
+ */
+async function findPrdDocument(projectId, prdFilePath) {
+    const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
+
+    // 确保docs目录存在
+    await fs.mkdir(docsDir, { recursive: true });
+
+    // 如果指定了文件路径，直接使用
+    if (prdFilePath) {
+        const fullPath = pathManager.getPrdPath(projectId, prdFilePath);
+        try {
+            await fs.access(fullPath);
+            return fullPath;
+        } catch (error) {
+            throw new ValidationError(`PRD file not found: ${prdFilePath}`);
+        }
+    }
+
+    // 自动查找常见的PRD文件名
+    const commonPrdNames = [
+        'prd.md',
+        'prd.txt',
+        'PRD.md',
+        'PRD.txt',
+        'requirements.md',
+        'requirements.txt',
+        'product-requirements.md',
+        'product-requirements.txt'
+    ];
+
+    for (const filename of commonPrdNames) {
+        const fullPath = pathManager.getPrdPath(projectId, filename);
+        try {
+            await fs.access(fullPath);
+            logger.info(`Found PRD document: ${filename}`, { projectId });
+            return fullPath;
+        } catch (error) {
+            // 继续查找下一个文件
+        }
+    }
+
+    // 如果没有找到任何PRD文档，抛出错误
+    throw new ValidationError(
+        `No PRD document found in project ${projectId}. ` +
+        `Please ensure one of the following files exists in the docs directory: ${commonPrdNames.join(', ')}`
+    );
+}
 
 // 项目验证中间件
 router.use(projectValidator);
@@ -17,41 +71,209 @@ router.use(projectValidator);
 // 解析PRD时需要文件锁
 router.use('/parse', prdFileLockMiddleware());
 
+// 获取项目PRD概览信息
+router.get('/', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const project = req.project;
+        const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
+
+        try {
+            const files = await fs.readdir(docsDir);
+            const prdFiles = [];
+
+            for (const file of files) {
+                const filePath = path.join(docsDir, file);
+                const stats = await fs.stat(filePath);
+
+                if (stats.isFile() && /\.(txt|md|markdown)$/i.test(file)) {
+                    prdFiles.push({
+                        filename: file,
+                        path: path.relative(pathManager.getProjectRoot(projectId), filePath),
+                        size: stats.size,
+                        created: stats.birthtime,
+                        modified: stats.mtime
+                    });
+                }
+            }
+
+            res.json({
+                success: true,
+                data: {
+                    files: prdFiles,
+                    count: prdFiles.length,
+                    projectId
+                },
+                message: 'PRD overview retrieved successfully',
+                projectId,
+                requestId: req.requestId
+            });
+
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                // docs目录不存在，返回空列表
+                res.json({
+                    success: true,
+                    data: {
+                        files: [],
+                        count: 0,
+                        projectId
+                    },
+                    message: 'No PRD documents found',
+                    projectId,
+                    requestId: req.requestId
+                });
+            } else {
+                throw error;
+            }
+        }
+
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 获取PRD文件内容
+router.get('/files/:filename', async (req, res, next) => {
+    try {
+        const { projectId, filename } = req.params;
+        const project = req.project;
+        const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
+        const filePath = path.join(docsDir, filename);
+
+        // 安全检查：确保文件在docs目录内
+        const resolvedPath = path.resolve(filePath);
+        const resolvedDocsDir = path.resolve(docsDir);
+        if (!resolvedPath.startsWith(resolvedDocsDir)) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'INVALID_PATH',
+                    message: 'Invalid file path'
+                },
+                projectId,
+                requestId: req.requestId
+            });
+        }
+
+        try {
+            const content = await fs.readFile(filePath, 'utf8');
+            const stats = await fs.stat(filePath);
+
+            res.json({
+                success: true,
+                data: {
+                    filename,
+                    content,
+                    size: stats.size,
+                    modified: stats.mtime,
+                    projectId
+                },
+                message: 'PRD file content retrieved successfully',
+                projectId,
+                requestId: req.requestId
+            });
+
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                res.status(404).json({
+                    success: false,
+                    error: {
+                        code: 'FILE_NOT_FOUND',
+                        message: `PRD file ${filename} not found`
+                    },
+                    projectId,
+                    requestId: req.requestId
+                });
+            } else {
+                throw error;
+            }
+        }
+
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 下载PRD文件
+router.get('/files/:filename/download', async (req, res, next) => {
+    try {
+        const { projectId, filename } = req.params;
+        const project = req.project;
+        const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
+        const filePath = path.join(docsDir, filename);
+
+        // 安全检查：确保文件在docs目录内
+        const resolvedPath = path.resolve(filePath);
+        const resolvedDocsDir = path.resolve(docsDir);
+        if (!resolvedPath.startsWith(resolvedDocsDir)) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'INVALID_PATH',
+                    message: 'Invalid file path'
+                },
+                projectId,
+                requestId: req.requestId
+            });
+        }
+
+        try {
+            const stats = await fs.stat(filePath);
+
+            // 设置下载响应头
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('Content-Length', stats.size);
+
+            // 创建文件流并发送
+            const fileStream = await fs.readFile(filePath);
+            res.send(fileStream);
+
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                res.status(404).json({
+                    success: false,
+                    error: {
+                        code: 'FILE_NOT_FOUND',
+                        message: `PRD file ${filename} not found`
+                    },
+                    projectId,
+                    requestId: req.requestId
+                });
+            } else {
+                throw error;
+            }
+        }
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // 解析PRD生成任务
 router.post('/parse', async (req, res, next) => {
     try {
         const { projectId } = req.params;
-        const { 
-            prdContent, 
-            prdFilePath, 
-            numTasks, 
+        const {
+            prdContent,
+            prdFilePath,
+            numTasks,
             useResearch = false,
             force = false,
-            append = false 
+            append = false
         } = req.body;
-        
-        if (!prdContent && !prdFilePath) {
-            throw new ValidationError('Either prdContent or prdFilePath must be provided');
-        }
-        
-        const project = req.project;
+
         let actualPrdPath;
-        
+
         if (prdContent) {
-            // 如果提供了内容，保存到临时文件
+            // 如果提供了内容，保存到临时文件（向后兼容）
             const tempFileName = `temp_prd_${Date.now()}.txt`;
-            actualPrdPath = path.join(project.path, '.taskmaster', 'docs', tempFileName);
+            actualPrdPath = pathManager.getPrdPath(projectId, tempFileName);
             await fs.writeFile(actualPrdPath, prdContent, 'utf8');
         } else {
-            // 使用提供的文件路径
-            actualPrdPath = path.join(project.path, '.taskmaster', 'docs', prdFilePath);
-            
-            // 检查文件是否存在
-            try {
-                await fs.access(actualPrdPath);
-            } catch (error) {
-                throw new ValidationError(`PRD file not found: ${prdFilePath}`);
-            }
+            // 自动查找PRD文档
+            actualPrdPath = await findPrdDocument(projectId, prdFilePath);
         }
         
         const options = {
@@ -61,7 +283,7 @@ router.post('/parse', async (req, res, next) => {
         };
         
         const result = await coreAdapter.parsePRD(
-            project.path,
+            projectId,
             actualPrdPath,
             numTasks || 10,
             options
@@ -103,7 +325,7 @@ router.put('/', async (req, res, next) => {
         }
 
         const project = req.project;
-        const docsDir = path.join(project.path, '.taskmaster', 'docs');
+        const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
 
         // 确保docs目录存在
         await fs.mkdir(docsDir, { recursive: true });
@@ -152,7 +374,7 @@ router.post('/upload', async (req, res, next) => {
         }
         
         const project = req.project;
-        const docsDir = path.join(project.path, '.taskmaster', 'docs');
+        const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
         const filePath = path.join(docsDir, filename);
         
         // 确保docs目录存在
@@ -165,7 +387,7 @@ router.post('/upload', async (req, res, next) => {
             success: true,
             data: {
                 filename,
-                path: path.relative(project.path, filePath),
+                path: path.relative(pathManager.getProjectRoot(projectId), filePath),
                 size: Buffer.byteLength(content, 'utf8')
             },
             message: 'PRD file uploaded successfully',
@@ -183,7 +405,7 @@ router.get('/files', async (req, res, next) => {
     try {
         const { projectId } = req.params;
         const project = req.project;
-        const docsDir = path.join(project.path, '.taskmaster', 'docs');
+        const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
         
         try {
             const files = await fs.readdir(docsDir);
@@ -196,7 +418,7 @@ router.get('/files', async (req, res, next) => {
                 if (stats.isFile() && /\.(txt|md|markdown)$/i.test(file)) {
                     prdFiles.push({
                         filename: file,
-                        path: path.relative(project.path, filePath),
+                        path: path.relative(pathManager.getProjectRoot(projectId), filePath),
                         size: stats.size,
                         created: stats.birthtime,
                         modified: stats.mtime
@@ -237,7 +459,7 @@ router.get('/files/:filename', async (req, res, next) => {
     try {
         const { projectId, filename } = req.params;
         const project = req.project;
-        const filePath = path.join(project.path, '.taskmaster', 'docs', filename);
+        const filePath = pathManager.getPrdPath(projectId, filename);
         
         try {
             const content = await fs.readFile(filePath, 'utf8');
@@ -273,7 +495,7 @@ router.delete('/files/:filename', async (req, res, next) => {
     try {
         const { projectId, filename } = req.params;
         const project = req.project;
-        const filePath = path.join(project.path, '.taskmaster', 'docs', filename);
+        const filePath = pathManager.getPrdPath(projectId, filename);
         
         try {
             await fs.unlink(filePath);

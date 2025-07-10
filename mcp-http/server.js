@@ -131,9 +131,18 @@ class TaskMasterRemoteMCPServer {
       console.log(`Request Headers:`, JSON.stringify(req.headers, null, 2));
       console.log(`========================\n`);
 
-      // 临时设置项目ID用于API调用
-      const originalProjectId = this.projectId;
-      this.projectId = req.projectId;
+      // 从请求中获取项目ID，确保在整个请求处理过程中使用正确的项目ID
+      const requestProjectId = req.projectId;
+      if (!requestProjectId) {
+        return res.status(400).json({
+          jsonrpc: "2.0",
+          id: mcpRequest.id || 1,
+          error: {
+            code: -32602,
+            message: "Project ID is required in X-PROJECT header"
+          }
+        });
+      }
 
       let result;
 
@@ -169,11 +178,11 @@ class TaskMasterRemoteMCPServer {
             name: "taskmaster-remote",
             version: "1.0.0"
           },
-          instructions: `TaskMaster Remote MCP Server for project: ${req.projectId}. Provides task management tools for AI-driven project development.`
+          instructions: `TaskMaster Remote MCP Server for project: ${requestProjectId}. Provides task management tools for AI-driven project development.`
         };
       } else if (mcpRequest.method === 'notifications/initialized') {
         // MCP初始化完成通知 - 这是一个通知，不需要响应
-        console.log(`MCP client initialized for project: ${req.projectId}`);
+        console.log(`MCP client initialized for project: ${requestProjectId}`);
 
         // 对于通知，我们不返回result，直接返回空响应
         res.status(200).end();
@@ -181,13 +190,10 @@ class TaskMasterRemoteMCPServer {
       } else if (mcpRequest.method === 'tools/list') {
         result = await this.getToolsList();
       } else if (mcpRequest.method === 'tools/call') {
-        result = await this.handleToolCall(mcpRequest.params);
+        result = await this.handleToolCall(mcpRequest.params, requestProjectId);
       } else {
         throw new Error(`Unsupported method: ${mcpRequest.method}`);
       }
-
-      // 恢复原始项目ID
-      this.projectId = originalProjectId;
 
       // 构建符合JSON-RPC标准的响应 - 必须使用客户端的请求ID
       const response = {
@@ -331,13 +337,14 @@ class TaskMasterRemoteMCPServer {
         },
         {
           name: 'parse_prd',
-          description: `Parse PRD content and generate tasks for project ${projectId}`,
+          description: `Parse PRD document from project ${projectId} and generate tasks`,
           inputSchema: {
             type: 'object',
             properties: {
-              prdContent: {
+              prdFilename: {
                 type: 'string',
-                description: 'PRD content to parse',
+                description: 'PRD filename to parse (optional, defaults to prd.txt or prd.md)',
+                default: null,
               },
               numTasks: {
                 type: 'number',
@@ -355,7 +362,7 @@ class TaskMasterRemoteMCPServer {
                 default: false,
               },
             },
-            required: ['prdContent'],
+            required: [],
           },
         },
 
@@ -1015,9 +1022,15 @@ class TaskMasterRemoteMCPServer {
 
   /**
    * 处理工具调用（用于HTTP模式）
+   * @param {Object} params - 工具调用参数
+   * @param {string} projectId - 项目ID
    */
-  async handleToolCall(params) {
+  async handleToolCall(params, projectId) {
     const { name, arguments: args } = params;
+
+    // 临时设置项目ID，确保所有API调用都使用正确的项目ID
+    const originalProjectId = this.projectId;
+    this.projectId = projectId;
 
     try {
       switch (name) {
@@ -1144,6 +1157,9 @@ class TaskMasterRemoteMCPServer {
           },
         ],
       };
+    } finally {
+      // 恢复原始项目ID
+      this.projectId = originalProjectId;
     }
   }
 
@@ -1271,12 +1287,18 @@ class TaskMasterRemoteMCPServer {
   }
 
   async handleParsePRD(args) {
-    const { prdContent, numTasks = 10, force = false, research = false } = args;
+    const { prdFilename = null, numTasks = 10, force = false, research = false } = args;
 
+    // 服务端将自动从项目的固定路径读取PRD文档
     // URL会被拼接为: http://localhost:3000/api/projects/{projectId}/prd/parse
     const result = await this.callApi('prd/parse', {
       method: 'POST',
-      body: JSON.stringify({ prdContent, numTasks, force, research }),
+      body: JSON.stringify({
+        prdFilePath: prdFilename, // 可选的文件名，服务端会自动查找
+        numTasks,
+        force,
+        useResearch: research
+      }),
     });
 
     return {

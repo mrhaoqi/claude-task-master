@@ -30,12 +30,12 @@ router.get('/', taskListCache(), async (req, res, next) => {
             tag: tag || 'main'
         };
         
-        const result = await req.projectManager.coreAdapter.listTasks(project.path, options);
+        const result = await req.projectManager.coreAdapter.listTasks(projectId, options);
 
         // 增强任务数据，添加PRD范围信息（不修改原始数据）
         let enhancedTasks = result;
         if (result && Array.isArray(result.tasks)) {
-            const enhanced = await taskEnhancement.enhanceTaskList(project.path, result.tasks);
+            const enhanced = await taskEnhancement.enhanceTaskList(req.projectManager.getProjectPath(projectId), result.tasks);
             enhancedTasks = { ...result, tasks: enhanced };
         }
 
@@ -67,7 +67,7 @@ router.post('/', scopeCheckMiddlewares.addTask, async (req, res, next) => {
         };
 
         const result = await req.projectManager.coreAdapter.addTask(
-            project.path,
+            projectId,
             title,
             description,
             priority,
@@ -93,7 +93,7 @@ router.get('/:taskId', async (req, res, next) => {
         const { projectId, taskId } = req.params;
         
         const project = req.project;
-        const result = await req.projectManager.coreAdapter.listTasks(project.path);
+        const result = await req.projectManager.coreAdapter.listTasks(projectId);
         
         // 查找指定任务
         const task = result.tasks?.find(t => t.id === parseInt(taskId));
@@ -122,7 +122,7 @@ router.put('/:taskId', async (req, res, next) => {
         
         const project = req.project;
         const result = await req.projectManager.coreAdapter.updateTaskById(
-            project.path,
+            projectId,
             parseInt(taskId),
             updates
         );
@@ -147,7 +147,7 @@ router.delete('/:taskId', async (req, res, next) => {
         
         const project = req.project;
         const result = await req.projectManager.coreAdapter.removeTask(
-            project.path,
+            projectId,
             parseInt(taskId)
         );
         
@@ -176,7 +176,7 @@ router.post('/:taskId/expand', scopeCheckMiddlewares.expandTask, async (req, res
         };
         
         const result = await req.projectManager.coreAdapter.expandTask(
-            project.path,
+            projectId,
             taskId,  // 传递字符串，让原始脚本自己处理parseInt
             numSubtasks,
             options
@@ -207,7 +207,7 @@ router.put('/:taskId/status', async (req, res, next) => {
         
         const project = req.project;
         const result = await req.projectManager.coreAdapter.setTaskStatus(
-            project.path,
+            projectId,
             parseInt(taskId),
             status
         );
@@ -232,7 +232,7 @@ router.post('/:taskId/analyze', async (req, res, next) => {
         
         const project = req.project;
         const result = await req.projectManager.coreAdapter.analyzeTaskComplexity(
-            project.path,
+            projectId,
             parseInt(taskId)
         );
         
@@ -263,7 +263,7 @@ router.post('/generate-from-prd', async (req, res, next) => {
 
         // 调用PRD解析功能
         const result = await coreAdapter.parsePRD(
-            project.path,
+            projectId,
             null, // 不使用文件路径，直接使用内容
             numTasks,
             {
