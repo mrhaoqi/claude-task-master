@@ -213,6 +213,36 @@ class CoreAdapter {
      * 将全局配置转换为原始脚本期望的格式
      */
     _convertToLegacyConfig(globalConfig) {
+        // 安全检查
+        if (!globalConfig || !globalConfig.ai || !globalConfig.ai.main) {
+            this.logger.warn('Invalid global config, using defaults');
+            return {
+                models: {
+                    main: {
+                        provider: 'openai',
+                        modelId: 'gpt-4',
+                        maxTokens: 4000,
+                        temperature: 0.7,
+                        model: 'gpt-4'
+                    },
+                    research: {
+                        provider: 'openai',
+                        modelId: 'gpt-4',
+                        maxTokens: 4000,
+                        temperature: 0.1,
+                        model: 'gpt-4'
+                    },
+                    fallback: {
+                        provider: 'openai',
+                        modelId: 'gpt-4',
+                        maxTokens: 4000,
+                        temperature: 0.7,
+                        model: 'gpt-4'
+                    }
+                }
+            };
+        }
+
         // 原始脚本期望 'models' 结构，而不是 'ai' 结构
         return {
             models: {
@@ -945,6 +975,186 @@ ${prdContent}
             this.logger.error('Analyze task complexity failed', { error: error.message, projectId });
             throw error;
         }
+    }
+
+    /**
+     * 扩展所有任务
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async expandAllTasks(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const adaptedOptions = {
+                ...options,
+                projectRoot: projectPath,
+                mcpLog: this.logger,
+                outputFormat: 'json'
+            };
+
+            const { default: expandAllTasks } = await import('../../scripts/modules/task-manager/expand-all-tasks.js');
+            const result = await expandAllTasks(tasksPath, adaptedOptions);
+
+            return result;
+        } catch (error) {
+            this.logger.error('Expand all tasks failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 分析项目复杂度
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async analyzeProjectComplexity(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            // 使用现有的任务复杂度分析功能来分析整个项目
+            const adaptedOptions = {
+                ...options,
+                projectRoot: projectPath,
+                mcpLog: this.logger,
+                outputFormat: 'json',
+                analyzeAll: true // 分析所有任务
+            };
+
+            const { default: analyzeTaskComplexity } = await import('../../scripts/modules/task-manager/analyze-task-complexity.js');
+
+            // 获取所有任务并分析
+            const tasksResult = await this.listTasks(projectId);
+            const tasks = tasksResult.tasks || [];
+
+            if (tasks.length === 0) {
+                return {
+                    message: 'No tasks found in project',
+                    complexity: 'low',
+                    taskCount: 0
+                };
+            }
+
+            // 分析每个任务的复杂度
+            const taskAnalyses = [];
+            for (const task of tasks) {
+                try {
+                    const taskResult = await analyzeTaskComplexity(tasksPath, task.id, adaptedOptions);
+                    taskAnalyses.push({
+                        taskId: task.id,
+                        title: task.title,
+                        complexity: taskResult
+                    });
+                } catch (taskError) {
+                    this.logger.warn(`Failed to analyze task ${task.id}`, { error: taskError.message });
+                }
+            }
+
+            // 汇总项目复杂度
+            const result = {
+                projectId,
+                totalTasks: tasks.length,
+                analyzedTasks: taskAnalyses.length,
+                taskAnalyses: options.detailed ? taskAnalyses : undefined,
+                summary: {
+                    averageComplexity: 'medium', // 简化计算
+                    highComplexityTasks: taskAnalyses.filter(t => t.complexity?.complexity === 'high').length,
+                    mediumComplexityTasks: taskAnalyses.filter(t => t.complexity?.complexity === 'medium').length,
+                    lowComplexityTasks: taskAnalyses.filter(t => t.complexity?.complexity === 'low').length
+                }
+            };
+
+            return result;
+        } catch (error) {
+            this.logger.error('Analyze project complexity failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 获取下一个任务
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async getNextTask(projectId, options = {}) {
+        try {
+            // 获取任务列表
+            const tasksResult = await this.listTasks(projectId);
+            const tasks = tasksResult.tasks || [];
+
+            if (tasks.length === 0) {
+                return null;
+            }
+
+            // 过滤指定状态的任务
+            const { status = 'pending' } = options;
+            const filteredTasks = tasks.filter(task => task.status === status);
+
+            if (filteredTasks.length === 0) {
+                return null;
+            }
+
+            const { default: findNextTask } = await import('../../scripts/modules/task-manager/find-next-task.js');
+            const result = findNextTask(filteredTasks);
+
+            return result;
+        } catch (error) {
+            this.logger.error('Get next task failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 生成复杂度报告
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async generateComplexityReport(projectId, options = {}) {
+        try {
+            // 使用项目复杂度分析功能生成报告
+            const analysisResult = await this.analyzeProjectComplexity(projectId, { detailed: true });
+
+            const { format = 'json' } = options;
+
+            if (format === 'markdown') {
+                // 生成Markdown格式报告
+                const markdown = this._generateMarkdownReport(analysisResult);
+                return { format: 'markdown', content: markdown };
+            } else {
+                // 返回JSON格式报告
+                return { format: 'json', content: analysisResult };
+            }
+        } catch (error) {
+            this.logger.error('Generate complexity report failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 生成Markdown格式的复杂度报告
+     * @private
+     */
+    _generateMarkdownReport(analysisResult) {
+        const { projectId, totalTasks, summary, taskAnalyses } = analysisResult;
+
+        let markdown = `# Project Complexity Report: ${projectId}\n\n`;
+        markdown += `## Summary\n`;
+        markdown += `- Total Tasks: ${totalTasks}\n`;
+        markdown += `- High Complexity: ${summary.highComplexityTasks}\n`;
+        markdown += `- Medium Complexity: ${summary.mediumComplexityTasks}\n`;
+        markdown += `- Low Complexity: ${summary.lowComplexityTasks}\n\n`;
+
+        if (taskAnalyses && taskAnalyses.length > 0) {
+            markdown += `## Task Details\n\n`;
+            for (const task of taskAnalyses) {
+                markdown += `### Task ${task.taskId}: ${task.title}\n`;
+                markdown += `- Complexity: ${task.complexity?.complexity || 'unknown'}\n\n`;
+            }
+        }
+
+        return markdown;
     }
 }
 

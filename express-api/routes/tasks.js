@@ -87,6 +87,31 @@ router.post('/', scopeCheckMiddlewares.addTask, async (req, res, next) => {
     }
 });
 
+// 获取下一个任务 - 必须在 /:taskId 路由之前定义
+router.get('/next', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { status = 'pending' } = req.query;
+
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.getNextTask(
+            projectId,
+            { status }
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: result ? `Next task found` : 'No tasks available',
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // 获取单个任务
 router.get('/:taskId', async (req, res, next) => {
     try {
@@ -244,6 +269,31 @@ router.post('/:taskId/analyze', async (req, res, next) => {
             requestId: req.requestId
         });
         
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 扩展所有任务
+router.post('/expand-all', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { maxSubtasks = 5 } = req.body;
+
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.expandAllTasks(
+            projectId,
+            { maxSubtasks }
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `All tasks expanded successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
     } catch (error) {
         next(error);
     }

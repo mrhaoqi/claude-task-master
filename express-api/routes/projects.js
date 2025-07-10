@@ -228,6 +228,68 @@ router.delete('/:projectId', async (req, res, next) => {
     }
 });
 
+// 分析项目复杂度
+router.post('/:projectId/analyze', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { detailed = false } = req.body;
+        const projectManager = req.projectManager;
+
+        // 验证项目是否存在
+        const project = projectManager.getProject(projectId);
+        if (!project) {
+            throw new NotFoundError(`Project ${projectId} not found`);
+        }
+
+        const result = await projectManager.coreAdapter.analyzeProjectComplexity(
+            projectId,
+            { detailed }
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Project ${projectId} complexity analyzed`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        next(error);
+    }
+});
+
+// 生成复杂度报告
+router.get('/:projectId/reports/complexity', async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { format = 'json' } = req.query;
+        const projectManager = req.projectManager;
+
+        // 验证项目是否存在
+        const project = projectManager.getProject(projectId);
+        if (!project) {
+            throw new NotFoundError(`Project ${projectId} not found`);
+        }
+
+        const result = await projectManager.coreAdapter.generateComplexityReport(
+            projectId,
+            { format }
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Complexity report generated for project ${projectId}`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // 下载项目的IDE配置文件
 router.get('/:projectId/ide-config/:ideType?', async (req, res, next) => {
     try {
