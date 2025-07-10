@@ -27,16 +27,11 @@ export class ScopeManagementMCPTools {
     return [
       {
         name: 'analyze_prd_scope',
-        description: 'Analyze PRD document to extract requirements and establish project scope baseline for change management',
+        description: 'Analyze PRD document to extract requirements and establish project scope baseline for change management. Automatically finds PRD document in project docs directory.',
         inputSchema: {
           type: 'object',
-          properties: {
-            prdFilePath: {
-              type: 'string',
-              description: 'Path to PRD file relative to .taskmaster/docs/ directory (e.g., "requirements.md")'
-            }
-          },
-          required: ['prdFilePath']
+          properties: {},
+          required: []
         }
       },
       {
@@ -222,9 +217,41 @@ export class ScopeManagementMCPTools {
   }
 
   async _analyzePrdScope(args, projectPath) {
-    const { prdFilePath } = args;
-    const fullPrdPath = `${projectPath}/.taskmaster/docs/${prdFilePath}`;
-    
+    // 自动查找PRD文档，不再需要prdFilePath参数
+    const docsDir = `${projectPath}/.taskmaster/docs`;
+
+    // 常见的PRD文件名
+    const commonPrdNames = [
+      'prd.md',
+      'prd.txt',
+      'PRD.md',
+      'PRD.txt',
+      'requirements.md',
+      'requirements.txt',
+      'product-requirements.md',
+      'product-requirements.txt'
+    ];
+
+    let fullPrdPath = null;
+    const fs = require('fs').promises;
+
+    // 查找PRD文档
+    for (const filename of commonPrdNames) {
+      const testPath = `${docsDir}/${filename}`;
+      try {
+        await fs.access(testPath);
+        fullPrdPath = testPath;
+        this.logger.info(`Found PRD document: ${filename}`, { projectPath });
+        break;
+      } catch (error) {
+        // 继续查找下一个文件
+      }
+    }
+
+    if (!fullPrdPath) {
+      throw new Error('No PRD document found in project docs directory. Please ensure a PRD file exists with a common name (prd.md, requirements.md, etc.)');
+    }
+
     const result = await this.prdAnalyzer.analyzePrd(projectPath, fullPrdPath);
     
     return {

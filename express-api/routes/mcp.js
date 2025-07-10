@@ -43,13 +43,13 @@ function getToolsList(projectId = 'default') {
       },
       {
         name: 'parse-prd',
-        description: `Parse PRD content and generate tasks for project ${projectId}`,
+        description: `Parse PRD document and generate tasks for project ${projectId}. Automatically finds PRD document in project docs directory.`,
         inputSchema: {
           type: 'object',
           properties: {
             prdContent: {
               type: 'string',
-              description: 'PRD content to parse',
+              description: 'PRD content to parse (optional, if not provided will auto-find PRD document)',
             },
             numTasks: {
               type: 'number',
@@ -67,7 +67,7 @@ function getToolsList(projectId = 'default') {
               default: false,
             },
           },
-          required: ['prdContent'],
+          required: [],
         },
       },
 

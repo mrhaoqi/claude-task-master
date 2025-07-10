@@ -246,6 +246,7 @@ function _resolveApiKey(providerName, session, projectRoot = null) {
 
 	const keyMap = {
 		openai: 'OPENAI_API_KEY',
+		'openai-compatible': 'OPENAI_API_KEY', // OpenAI-compatible APIs use the same key format
 		anthropic: 'ANTHROPIC_API_KEY',
 		google: 'GOOGLE_API_KEY',
 		perplexity: 'PERPLEXITY_API_KEY',

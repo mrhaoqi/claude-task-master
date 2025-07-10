@@ -337,15 +337,10 @@ class TaskMasterRemoteMCPServer {
         },
         {
           name: 'parse_prd',
-          description: `Parse PRD document from project ${projectId} and generate tasks`,
+          description: `Parse PRD document from project ${projectId} and generate tasks. Automatically finds PRD document in project docs directory.`,
           inputSchema: {
             type: 'object',
             properties: {
-              prdFilename: {
-                type: 'string',
-                description: 'PRD filename to parse (optional, defaults to prd.txt or prd.md)',
-                default: null,
-              },
               numTasks: {
                 type: 'number',
                 description: 'Number of tasks to generate',
@@ -1287,14 +1282,14 @@ class TaskMasterRemoteMCPServer {
   }
 
   async handleParsePRD(args) {
-    const { prdFilename = null, numTasks = 10, force = false, research = false } = args;
+    const { numTasks = 10, force = false, research = false } = args;
 
     // 服务端将自动从项目的固定路径读取PRD文档
     // URL会被拼接为: http://localhost:3000/api/projects/{projectId}/prd/parse
     const result = await this.callApi('prd/parse', {
       method: 'POST',
       body: JSON.stringify({
-        prdFilePath: prdFilename, // 可选的文件名，服务端会自动查找
+        // 不再传递prdFilePath，服务端会自动查找PRD文档
         numTasks,
         force,
         useResearch: research

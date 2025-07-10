@@ -15,23 +15,24 @@ const pathManager = new ProjectPathManager();
 /**
  * 自动查找PRD文档
  * @param {string} projectId - 项目ID
- * @param {string} [prdFilePath] - 可选的PRD文件路径
+ * @param {string} [prdFilePath] - 可选的PRD文件路径（已废弃，保留向后兼容）
  * @returns {string} PRD文档的完整路径
  */
-async function findPrdDocument(projectId, prdFilePath) {
+async function findPrdDocument(projectId, prdFilePath = null) {
     const docsDir = path.join(pathManager.getTaskmasterDir(projectId), 'docs');
 
     // 确保docs目录存在
     await fs.mkdir(docsDir, { recursive: true });
 
-    // 如果指定了文件路径，直接使用
+    // 如果指定了文件路径，直接使用（向后兼容）
     if (prdFilePath) {
         const fullPath = pathManager.getPrdPath(projectId, prdFilePath);
         try {
             await fs.access(fullPath);
+            logger.info(`Using specified PRD file: ${prdFilePath}`, { projectId });
             return fullPath;
         } catch (error) {
-            throw new ValidationError(`PRD file not found: ${prdFilePath}`);
+            logger.warn(`Specified PRD file not found: ${prdFilePath}, falling back to auto-detection`, { projectId });
         }
     }
 
@@ -257,7 +258,6 @@ router.post('/parse', async (req, res, next) => {
         const { projectId } = req.params;
         const {
             prdContent,
-            prdFilePath,
             numTasks,
             useResearch = false,
             force = false,
@@ -272,8 +272,8 @@ router.post('/parse', async (req, res, next) => {
             actualPrdPath = pathManager.getPrdPath(projectId, tempFileName);
             await fs.writeFile(actualPrdPath, prdContent, 'utf8');
         } else {
-            // 自动查找PRD文档
-            actualPrdPath = await findPrdDocument(projectId, prdFilePath);
+            // 自动查找PRD文档，不再需要prdFilePath参数
+            actualPrdPath = await findPrdDocument(projectId);
         }
         
         const options = {
