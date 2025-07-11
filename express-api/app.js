@@ -18,6 +18,7 @@ import fileRoutes from './routes/files.js';
 import globalRoutes from './routes/global.js';
 import mcpRoutes from './routes/mcp.js';
 import scopeManagementRoutes from './routes/scope-management.js';
+import adminRoutes from './routes/admin.js';
 
 import { errorHandler } from './middleware/error-handler.js';
 import { getLockStatus } from './middleware/file-lock.js';
@@ -111,6 +112,7 @@ class TaskMasterServer {
 
         // API路由
         this.app.use('/api', globalRoutes);
+        this.app.use('/api/admin', adminRoutes);
         this.app.use('/api/projects', projectRoutes);
         this.app.use('/api/projects/:projectId/tasks', taskRoutes);
         this.app.use('/api/projects/:projectId/prd', prdRoutes);

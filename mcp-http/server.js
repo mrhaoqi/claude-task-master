@@ -1355,7 +1355,7 @@ class TaskMasterRemoteMCPServer {
   async handleAnalyze(args) {
     const { detailed = false } = args;
 
-    const result = await this.callApi('analyze', {
+    const result = await this.callApi(`analyze`, {
       method: 'POST',
       body: JSON.stringify({ detailed }),
     });
