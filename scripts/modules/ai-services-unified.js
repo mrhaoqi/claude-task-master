@@ -34,6 +34,7 @@ import {
 	resolveEnvVariable,
 	getCurrentTag
 } from './utils.js';
+import fs from 'fs';
 
 // Import provider classes
 import {
@@ -390,7 +391,15 @@ async function _unifiedServiceRunner(serviceType, params) {
 		});
 	}
 
-	const effectiveProjectRoot = projectRoot || findProjectRoot();
+	// 优先使用环境变量，然后使用传入的 projectRoot，最后使用 findProjectRoot()
+	let effectiveProjectRoot;
+	if (process.env.TASK_MASTER_PROJECT_ROOT && fs.existsSync(process.env.TASK_MASTER_PROJECT_ROOT)) {
+		effectiveProjectRoot = process.env.TASK_MASTER_PROJECT_ROOT;
+	} else if (projectRoot) {
+		effectiveProjectRoot = projectRoot;
+	} else {
+		effectiveProjectRoot = findProjectRoot();
+	}
 	const userId = getUserId(effectiveProjectRoot);
 
 	let sequence;
@@ -425,9 +434,14 @@ async function _unifiedServiceRunner(serviceType, params) {
 		try {
 			log('info', `New AI service call with role: ${currentRole}`);
 
+			// 调试信息
+			console.log('[DEBUG] AI Service - Project root:', effectiveProjectRoot);
+			console.log('[DEBUG] AI Service - TASK_MASTER_PROJECT_ROOT:', process.env.TASK_MASTER_PROJECT_ROOT);
+
 			if (currentRole === 'main') {
 				providerName = getMainProvider(effectiveProjectRoot);
 				modelId = getMainModelId(effectiveProjectRoot);
+				console.log('[DEBUG] AI Service - Main provider:', providerName, 'Model:', modelId);
 			} else if (currentRole === 'research') {
 				providerName = getResearchProvider(effectiveProjectRoot);
 				modelId = getResearchModelId(effectiveProjectRoot);

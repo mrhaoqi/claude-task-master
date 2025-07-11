@@ -10,6 +10,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
+// 确保使用正确的项目根目录（在加载 .env 之前设置，以防 .env 中没有此变量）
+if (!process.env.TASK_MASTER_PROJECT_ROOT) {
+    process.env.TASK_MASTER_PROJECT_ROOT = projectRoot;
+}
+
 // 加载 .env 文件
 dotenv.config({ path: path.join(projectRoot, '.env') });
 
@@ -29,11 +34,15 @@ async function main() {
             logger.warn('Please check your .env file. Server will continue but some features may not work.');
         }
 
+        // 验证项目根目录设置
+        logger.info('Project root directory:', process.env.TASK_MASTER_PROJECT_ROOT);
+        logger.info('Current working directory:', process.cwd());
+
         // 配置服务器
         const config = {
             port: parseInt(process.env.PORT) || 3000,
             host: process.env.HOST || '0.0.0.0',
-            projectsDir: process.env.PROJECTS_DIR || './projects',
+            projectsDir: process.env.PROJECTS_DIR || '../projects',
             nodeEnv: process.env.NODE_ENV || 'development',
             logLevel: process.env.LOG_LEVEL || 'info',
             debug: process.env.DEBUG === 'true'
