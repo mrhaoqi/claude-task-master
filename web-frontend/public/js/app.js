@@ -70,7 +70,7 @@ class TaskMasterApp {
         });
 
         document.getElementById('refreshProjectsBtn')?.addEventListener('click', () => {
-            this.loadProjects();
+            this.refreshProjectsWithCache();
         });
 
         // PRD文档上传
@@ -84,6 +84,28 @@ class TaskMasterApp {
 
         // 拖拽上传
         this.setupFileUpload();
+
+        // PRD任务生成
+        document.getElementById('generateTasksBtn')?.addEventListener('click', () => {
+            this.generateTasksFromPrd();
+        });
+
+        document.getElementById('refreshPrdListBtn')?.addEventListener('click', () => {
+            this.refreshPrdDocumentList();
+        });
+
+        // 删除项目相关事件
+        document.getElementById('closeDeleteModal')?.addEventListener('click', () => {
+            this.hideDeleteProjectModal();
+        });
+
+        document.getElementById('cancelDeleteProject')?.addEventListener('click', () => {
+            this.hideDeleteProjectModal();
+        });
+
+        document.getElementById('confirmDeleteProject')?.addEventListener('click', () => {
+            this.executeDeleteProject();
+        });
     }
 
     /**
@@ -121,22 +143,26 @@ class TaskMasterApp {
                 break;
             case 'prd':
                 if (this.currentProject) {
-                    this.loadPrd(this.currentProject);
+                    this.loadPrd(this.currentProject.id);
                 }
                 break;
             case 'tasks':
                 if (this.currentProject) {
-                    this.loadTasks(this.currentProject);
+                    this.loadTasks(this.currentProject.id);
+                    this.showPrdTaskGenerationSection();
+                    this.refreshPrdDocumentList();
+                } else {
+                    this.hidePrdTaskGenerationSection();
                 }
                 break;
             case 'prs':
                 if (this.currentProject) {
-                    this.loadPrs(this.currentProject);
+                    this.loadPrs(this.currentProject.id);
                 }
                 break;
             case 'crs':
                 if (this.currentProject) {
-                    this.loadCrs(this.currentProject);
+                    this.loadCrs(this.currentProject.id);
                 }
                 break;
         }
@@ -165,6 +191,11 @@ class TaskMasterApp {
         const controller = new AbortController();
         requestOptions.signal = controller.signal;
 
+        // 保存控制器以便外部取消
+        if (options.saveController) {
+            this.currentApiController = controller;
+        }
+
         const timeoutId = setTimeout(() => {
             controller.abort();
         }, timeout);
@@ -185,13 +216,16 @@ class TaskMasterApp {
             clearTimeout(timeoutId);
 
             if (error.name === 'AbortError') {
-                throw new Error('请求超时，请稍后重试');
+                throw new Error(controller.signal.reason === 'user_cancelled' ? 'aborted' : 'timeout');
             }
 
             console.error('API请求失败:', error);
             throw error;
         } finally {
             this.showLoading(false);
+            if (options.saveController) {
+                this.currentApiController = null;
+            }
         }
     }
 
@@ -307,6 +341,33 @@ class TaskMasterApp {
     }
 
     /**
+     * 刷新项目列表（清理缓存）
+     */
+    async refreshProjectsWithCache() {
+        console.log('🔄 开始刷新项目列表（清理缓存）...');
+        try {
+            // 显示刷新状态
+            this.showAlert('正在清理缓存...', 'info');
+
+            // 先清理项目相关缓存
+            await this.apiRequest('/api/admin/cache/clear/projects', {
+                method: 'POST',
+                body: JSON.stringify({})
+            });
+
+            console.log('✅ 缓存清理成功');
+            this.showAlert('缓存清理成功，正在重新加载...', 'info');
+
+            // 然后重新加载项目列表
+            await this.loadProjects();
+
+        } catch (error) {
+            console.error('❌ 刷新项目失败:', error);
+            this.showAlert(`刷新项目失败: ${error.message}`, 'error');
+        }
+    }
+
+    /**
      * 显示项目列表
      */
     displayProjects(projects) {
@@ -338,6 +399,9 @@ class TaskMasterApp {
                         <button class="btn btn-primary" onclick="app.selectProject('${project.id}')">
                             选择项目
                         </button>
+                        <button class="btn btn-danger" onclick="app.showDeleteProjectModal('${project.id}', '${project.name}')">
+                            删除
+                        </button>
                     </div>
                 </div>
             `;
@@ -351,7 +415,7 @@ class TaskMasterApp {
      * 选择项目
      */
     selectProject(projectId) {
-        this.currentProject = projectId;
+        this.currentProject = { id: projectId };
         this.showAlert(`已选择项目: ${projectId}`, 'success');
 
         // 更新项目选择器显示
@@ -458,7 +522,6 @@ class TaskMasterApp {
             document.getElementById('projectName').value = '';
             document.getElementById('projectDescription').value = '';
             document.getElementById('prdFile').value = '';
-            document.getElementById('generateTasks').checked = true;
 
             // 重置表单状态
             this.resetCreateProjectForm();
@@ -506,15 +569,14 @@ class TaskMasterApp {
 
             // 检查是否有PRD文档需要上传
             const prdFile = document.getElementById('prdFile').files[0];
-            const generateTasks = document.getElementById('generateTasks').checked;
 
             if (prdFile) {
-                await this.uploadPrdAndGenerateTasks(projectData.id, prdFile, generateTasks);
+                await this.uploadPrdDocument(projectData.id, prdFile);
             } else {
                 this.showCreateProgress('项目创建完成!', 100);
                 setTimeout(() => {
                     this.hideCreateProjectForm();
-                    this.showAlert('项目创建成功!', 'success');
+                    this.showAlert('项目创建成功! 您可以在任务管理页面生成任务。', 'success');
                     this.loadProjects();
                 }, 1000);
             }
@@ -527,9 +589,9 @@ class TaskMasterApp {
     }
 
     /**
-     * 上传PRD文档并生成任务
+     * 上传PRD文档
      */
-    async uploadPrdAndGenerateTasks(projectId, prdFile, generateTasks) {
+    async uploadPrdDocument(projectId, prdFile) {
         try {
             this.showCreateProgress('正在上传PRD文档...', 40);
 
@@ -537,7 +599,7 @@ class TaskMasterApp {
             const fileContent = await this.readFileContent(prdFile);
 
             // 上传PRD文档
-            const prdData = await this.apiRequest(`/api/projects/${projectId}/prd`, {
+            await this.apiRequest(`/api/projects/${projectId}/prd`, {
                 method: 'PUT',
                 body: JSON.stringify({
                     content: fileContent,
@@ -545,47 +607,20 @@ class TaskMasterApp {
                 })
             });
 
-            this.showCreateProgress('PRD文档上传成功...', 60);
-
-            if (generateTasks) {
-                this.showCreateProgress('正在解析PRD并生成任务，这可能需要1-2分钟...', 70);
-
-                // 使用更长的超时时间进行任务生成
-                const tasksData = await this.apiRequest(`/api/projects/${projectId}/tasks/generate-from-prd`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        prdContent: fileContent,
-                        numTasks: 10
-                    }),
-                    timeout: 120000 // 2分钟超时
-                });
-
-                this.showCreateProgress('任务生成完成!', 90);
-
-                // 显示生成的任务数量
-                const taskCount = tasksData.data?.tasks?.length || 0;
-                this.showCreateProgress(`项目创建完成! 已生成 ${taskCount} 个任务`, 100);
-            } else {
-                this.showCreateProgress('项目创建完成!', 100);
-            }
+            this.showCreateProgress('PRD文档上传成功!', 80);
+            this.showCreateProgress('项目创建完成! 您可以在任务管理页面生成任务。', 100);
 
             // 延迟关闭模态框
             setTimeout(() => {
                 this.hideCreateProjectForm();
-                this.showAlert('项目创建成功!', 'success');
+                this.showAlert('项目创建成功! PRD文档已上传，您可以在任务管理页面生成任务。', 'success');
                 this.loadProjects();
             }, 2000);
 
         } catch (error) {
-            if (error.message.includes('timeout')) {
-                this.showAlert('任务生成超时，但项目和PRD已创建成功。您可以稍后手动生成任务。', 'warning');
-                setTimeout(() => {
-                    this.hideCreateProjectForm();
-                    this.loadProjects();
-                }, 2000);
-            } else {
-                throw error;
-            }
+            this.hideCreateProgress();
+            this.resetCreateProjectForm();
+            this.showAlert(`PRD文档上传失败: ${error.message}`, 'error');
         }
     }
 
@@ -658,8 +693,13 @@ class TaskMasterApp {
 
         if (!tasks || tasks.length === 0) {
             container.innerHTML = '<p class="text-center">暂无任务</p>';
+            // 当没有任务时，展开任务生成框
+            this.expandPrdTaskGenerationSection();
             return;
         }
+
+        // 当有任务时，收缩任务生成框
+        this.collapsePrdTaskGenerationSection();
 
         // 按状态分组任务 - 完整的6种状态
         const groupedTasks = {
@@ -1451,6 +1491,459 @@ class TaskMasterApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * 刷新PRD文档列表
+     */
+    async refreshPrdDocumentList() {
+        if (!this.currentProject) {
+            this.showAlert('请先选择项目', 'warning');
+            return;
+        }
+
+        try {
+            const select = document.getElementById('prdDocumentSelect');
+            if (!select) return;
+
+            // 更新状态显示
+            this.updatePrdStatus('正在加载PRD文档列表...', 'loading');
+
+            // 清空现有选项
+            select.innerHTML = '<option value="">正在加载...</option>';
+
+            // 获取项目的PRD文档列表
+            const response = await this.apiRequest(`/api/projects/${this.currentProject.id}/prd`);
+
+            // 重置选项
+            select.innerHTML = '<option value="">请选择PRD文档</option>';
+
+            if (response.data && response.data.files && response.data.files.length > 0) {
+                response.data.files.forEach(doc => {
+                    const option = document.createElement('option');
+                    option.value = doc.filename || doc.name;
+                    option.textContent = `${doc.filename || doc.name} (${this.formatFileSize(doc.size || 0)})`;
+                    select.appendChild(option);
+                });
+
+                // 更新状态显示
+                const docCount = response.data.files.length;
+                this.updatePrdStatus(`找到 ${docCount} 个PRD文档，请选择一个来生成任务`, 'success');
+            } else {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = '暂无PRD文档';
+                option.disabled = true;
+                select.appendChild(option);
+
+                // 更新状态显示
+                this.updatePrdStatus('当前项目暂无PRD文档，请先在项目创建时上传PRD文档', 'warning');
+            }
+
+        } catch (error) {
+            console.error('Failed to load PRD documents:', error);
+            const select = document.getElementById('prdDocumentSelect');
+            if (select) {
+                select.innerHTML = '<option value="">加载失败</option>';
+            }
+            this.updatePrdStatus('加载PRD文档列表失败，请稍后重试', 'error');
+        }
+    }
+
+    /**
+     * 从PRD生成任务
+     */
+    async generateTasksFromPrd() {
+        if (!this.currentProject) {
+            this.showAlert('请先选择项目', 'warning');
+            return;
+        }
+
+        // 检查是否已经在生成中
+        if (this.isGeneratingTasks) {
+            this.showAlert('任务生成正在进行中，请稍候...', 'info');
+            return;
+        }
+
+        try {
+            // 获取表单数据
+            const prdDocument = document.getElementById('prdDocumentSelect').value;
+            const taskCount = parseInt(document.getElementById('taskCount').value) || 10;
+            const useResearch = document.getElementById('useResearch').checked;
+            const forceGenerate = document.getElementById('forceGenerate').checked;
+
+            if (!prdDocument) {
+                this.showAlert('请选择PRD文档', 'warning');
+                return;
+            }
+
+            // 设置生成状态
+            this.isGeneratingTasks = true;
+            this.taskGenerationStartTime = Date.now();
+
+            // 显示初始进度
+            this.showTaskGenerationProgress('正在准备生成任务...', 5);
+
+            // 禁用生成按钮并添加取消按钮
+            this.disableGenerationForm();
+
+            // 启动进度模拟
+            this.startProgressSimulation();
+
+            // 调用任务生成API
+            const response = await this.apiRequest(`/api/projects/${this.currentProject.id}/prd/parse`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    numTasks: taskCount,
+                    useResearch: useResearch,
+                    force: forceGenerate
+                }),
+                timeout: 300000, // 5分钟超时
+                saveController: true // 保存控制器以便取消
+            });
+
+            // 停止进度模拟
+            this.stopProgressSimulation();
+
+            this.showTaskGenerationProgress('任务生成完成!', 100);
+
+            // 显示成功消息
+            const taskCount_generated = response.data?.tasks?.length || response.data?.taskCount || 0;
+            this.showAlert(`成功生成 ${taskCount_generated} 个任务!`, 'success');
+
+            // 刷新任务列表
+            if (this.currentProject) {
+                this.loadTasks(this.currentProject.id);
+            }
+
+            // 延迟隐藏进度条
+            setTimeout(() => {
+                this.hideTaskGenerationProgress();
+                this.resetTaskGenerationForm();
+            }, 2000);
+
+        } catch (error) {
+            this.stopProgressSimulation();
+            this.hideTaskGenerationProgress();
+            this.resetTaskGenerationForm();
+
+            if (error.message.includes('timeout')) {
+                this.showAlert('任务生成超时，请检查网络连接或稍后重试', 'warning');
+            } else if (error.message.includes('aborted')) {
+                this.showAlert('任务生成已取消', 'info');
+            } else {
+                this.showAlert(`任务生成失败: ${error.message}`, 'error');
+            }
+        } finally {
+            this.isGeneratingTasks = false;
+        }
+    }
+
+    /**
+     * 显示任务生成进度
+     */
+    showTaskGenerationProgress(text, percentage) {
+        const progressContainer = document.getElementById('taskGenerationProgress');
+        const progressFill = document.getElementById('taskProgressFill');
+        const progressText = document.getElementById('taskProgressText');
+
+        if (progressContainer && progressFill && progressText) {
+            progressContainer.style.display = 'block';
+            progressFill.style.width = percentage + '%';
+
+            // 添加预估时间
+            let displayText = text;
+            if (this.taskGenerationStartTime && percentage > 5 && percentage < 95) {
+                const elapsed = Date.now() - this.taskGenerationStartTime;
+                const estimated = (elapsed / percentage) * 100;
+                const remaining = Math.max(0, estimated - elapsed);
+                const remainingMinutes = Math.ceil(remaining / 60000);
+                displayText += ` (预计还需 ${remainingMinutes} 分钟)`;
+            }
+
+            progressText.textContent = displayText;
+        }
+    }
+
+    /**
+     * 隐藏任务生成进度
+     */
+    hideTaskGenerationProgress() {
+        const progressContainer = document.getElementById('taskGenerationProgress');
+        if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
+    }
+
+    /**
+     * 重置任务生成表单
+     */
+    resetTaskGenerationForm() {
+        this.enableGenerationForm();
+        this.isGeneratingTasks = false;
+        this.taskGenerationStartTime = null;
+    }
+
+    /**
+     * 禁用生成表单
+     */
+    disableGenerationForm() {
+        const generateBtn = document.getElementById('generateTasksBtn');
+        const prdSelect = document.getElementById('prdDocumentSelect');
+        const taskCountInput = document.getElementById('taskCount');
+        const useResearchCheckbox = document.getElementById('useResearch');
+        const forceGenerateCheckbox = document.getElementById('forceGenerate');
+
+        if (generateBtn) {
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="btn-icon">⏳</span>生成中... <button type="button" onclick="app.cancelTaskGeneration()" style="margin-left: 10px; padding: 2px 8px; font-size: 12px; background: #dc3545; color: white; border: none; border-radius: 3px;">取消</button>';
+        }
+
+        // 禁用其他表单元素
+        [prdSelect, taskCountInput, useResearchCheckbox, forceGenerateCheckbox].forEach(element => {
+            if (element) element.disabled = true;
+        });
+    }
+
+    /**
+     * 启用生成表单
+     */
+    enableGenerationForm() {
+        const generateBtn = document.getElementById('generateTasksBtn');
+        const prdSelect = document.getElementById('prdDocumentSelect');
+        const taskCountInput = document.getElementById('taskCount');
+        const useResearchCheckbox = document.getElementById('useResearch');
+        const forceGenerateCheckbox = document.getElementById('forceGenerate');
+
+        if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<span class="btn-icon">🚀</span>生成任务';
+        }
+
+        // 启用其他表单元素
+        [prdSelect, taskCountInput, useResearchCheckbox, forceGenerateCheckbox].forEach(element => {
+            if (element) element.disabled = false;
+        });
+    }
+
+    /**
+     * 显示PRD任务生成区域
+     */
+    showPrdTaskGenerationSection() {
+        const section = document.getElementById('prdTaskGenerationSection');
+        if (section) {
+            section.style.display = 'block';
+        }
+    }
+
+    /**
+     * 隐藏PRD任务生成区域
+     */
+    hidePrdTaskGenerationSection() {
+        const section = document.getElementById('prdTaskGenerationSection');
+        if (section) {
+            section.style.display = 'none';
+        }
+    }
+
+    /**
+     * 启动进度模拟
+     */
+    startProgressSimulation() {
+        this.progressSimulationSteps = [
+            { text: '正在解析PRD文档...', percentage: 10, delay: 1000 },
+            { text: '正在分析需求内容...', percentage: 25, delay: 3000 },
+            { text: '正在调用AI服务...', percentage: 40, delay: 5000 },
+            { text: '正在生成任务结构...', percentage: 60, delay: 15000 },
+            { text: '正在优化任务依赖...', percentage: 80, delay: 10000 },
+            { text: '正在保存任务数据...', percentage: 90, delay: 5000 }
+        ];
+
+        this.currentProgressStep = 0;
+        this.progressTimer = setTimeout(() => this.updateProgressStep(), 1000);
+    }
+
+    /**
+     * 更新进度步骤
+     */
+    updateProgressStep() {
+        if (!this.isGeneratingTasks || this.currentProgressStep >= this.progressSimulationSteps.length) {
+            return;
+        }
+
+        const step = this.progressSimulationSteps[this.currentProgressStep];
+        this.showTaskGenerationProgress(step.text, step.percentage);
+
+        this.currentProgressStep++;
+        if (this.currentProgressStep < this.progressSimulationSteps.length) {
+            const nextStep = this.progressSimulationSteps[this.currentProgressStep];
+            this.progressTimer = setTimeout(() => this.updateProgressStep(), nextStep.delay);
+        }
+    }
+
+    /**
+     * 停止进度模拟
+     */
+    stopProgressSimulation() {
+        if (this.progressTimer) {
+            clearTimeout(this.progressTimer);
+            this.progressTimer = null;
+        }
+    }
+
+    /**
+     * 取消任务生成
+     */
+    cancelTaskGeneration() {
+        if (this.currentApiController) {
+            this.currentApiController.abort('user_cancelled');
+        }
+
+        this.stopProgressSimulation();
+        this.hideTaskGenerationProgress();
+        this.resetTaskGenerationForm();
+
+        this.showAlert('任务生成已取消', 'info');
+    }
+
+    /**
+     * 展开PRD任务生成区域（完全显示）
+     */
+    expandPrdTaskGenerationSection() {
+        const section = document.getElementById('prdTaskGenerationSection');
+        if (section) {
+            section.style.display = 'block';
+            section.classList.remove('collapsed');
+            section.classList.add('expanded');
+        }
+    }
+
+    /**
+     * 收缩PRD任务生成区域（显示为小卡片）
+     */
+    collapsePrdTaskGenerationSection() {
+        const section = document.getElementById('prdTaskGenerationSection');
+        if (section) {
+            section.style.display = 'block';
+            section.classList.remove('expanded');
+            section.classList.add('collapsed');
+        }
+    }
+
+    /**
+     * 切换PRD任务生成区域的展开/收缩状态
+     */
+    togglePrdTaskGenerationSection(event) {
+        const section = document.getElementById('prdTaskGenerationSection');
+        if (!section) return;
+
+        // 如果是收缩状态，则展开
+        if (section.classList.contains('collapsed')) {
+            this.expandPrdTaskGenerationSection();
+            // 阻止事件冒泡，避免在展开后立即触发其他点击事件
+            if (event) {
+                event.stopPropagation();
+            }
+        }
+        // 如果是展开状态，不做任何操作（保持展开）
+    }
+
+    /**
+     * 实现switchTab方法以支持程序化切换标签页
+     */
+    switchTab(tabId) {
+        const targetTab = document.querySelector(`[data-tab="${tabId}"]`);
+        if (targetTab) {
+            targetTab.click();
+        }
+    }
+
+    /**
+     * 更新PRD状态显示
+     */
+    updatePrdStatus(message, type = 'info') {
+        const statusIndicator = document.getElementById('prdStatusIndicator');
+        const statusText = document.getElementById('prdStatusText');
+
+        if (!statusIndicator || !statusText) return;
+
+        // 移除所有状态类
+        statusIndicator.classList.remove('status-success', 'status-warning', 'status-error');
+
+        // 添加对应的状态类
+        switch (type) {
+            case 'success':
+                statusIndicator.classList.add('status-success');
+                break;
+            case 'warning':
+                statusIndicator.classList.add('status-warning');
+                break;
+            case 'error':
+                statusIndicator.classList.add('status-error');
+                break;
+            case 'loading':
+                // 保持默认样式
+                break;
+        }
+
+        // 更新状态文本
+        statusText.textContent = message;
+    }
+
+    /**
+     * 显示删除项目确认对话框
+     */
+    showDeleteProjectModal(projectId, projectName) {
+        this.deleteProjectId = projectId;
+        document.getElementById('deleteProjectName').textContent = projectName;
+        document.getElementById('deleteProjectFiles').checked = false;
+        document.getElementById('deleteProjectModal').style.display = 'block';
+    }
+
+    /**
+     * 隐藏删除项目确认对话框
+     */
+    hideDeleteProjectModal() {
+        document.getElementById('deleteProjectModal').style.display = 'none';
+        this.deleteProjectId = null;
+    }
+
+    /**
+     * 执行删除项目操作
+     */
+    async executeDeleteProject() {
+        if (!this.deleteProjectId) {
+            this.showAlert('删除操作失败：未选择项目', 'error');
+            return;
+        }
+
+        const deleteFiles = document.getElementById('deleteProjectFiles').checked;
+        const projectId = this.deleteProjectId;
+
+        try {
+            // 显示删除进度
+            this.showAlert(deleteFiles ? '正在删除项目和文件...' : '正在删除项目...', 'info');
+
+            // 调用删除API
+            const response = await this.apiRequest(`/api/projects/${projectId}`, {
+                method: 'DELETE',
+                body: JSON.stringify({ deleteFiles })
+            });
+
+            // 隐藏对话框
+            this.hideDeleteProjectModal();
+
+            // 显示成功消息
+            this.showAlert(response.message || '项目删除成功', 'success');
+
+            // 刷新项目列表（包括缓存清理）
+            await this.refreshProjectsWithCache();
+
+        } catch (error) {
+            console.error('删除项目失败:', error);
+            this.showAlert(`删除项目失败: ${error.message}`, 'error');
+            this.hideDeleteProjectModal();
+        }
     }
 }
 
