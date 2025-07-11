@@ -429,9 +429,4 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📍 健康检查: http://localhost:${PORT}/health`);
   console.log(`🔍 调试信息: http://localhost:${PORT}/debug/routes`);
   console.log(`📚 完整功能列表: curl http://localhost:${PORT}/debug/routes`);
-  console.log(`\n🔧 Task Master集成状态: ${taskMasterService.initialized ? '✅ 已连接真实核心' : '⚠️  使用模拟数据'}`);
-  console.log(`\n🎯 快速测试:`);
-  console.log(`   Web界面: http://localhost:${PORT}/`);
-  console.log(`   任务列表: curl -H "X-API-Key: ${config.security.apiKey}" http://localhost:${PORT}/api/tasks`);
-  console.log(`   创建任务: curl -X POST -H "X-API-Key: ${config.security.apiKey}" -H "Content-Type: application/json" -d '{"prompt":"测试任务"}' http://localhost:${PORT}/api/tasks`);
 }); 

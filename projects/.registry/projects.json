@@ -1,246 +1,32 @@
 {
   "projects": {
-    "ai-assistant": {
-      "name": "ai-assistant",
-      "description": "",
-      "createdAt": "2025-07-02T08:19:32.732Z",
-      "lastAccessed": "2025-07-02T14:45:41.047Z",
-      "status": "active",
-      "tags": [],
-      "template": "default"
-    },
-    "mobile-demo": {
-      "name": "mobile-demo",
-      "description": "",
-      "createdAt": "2025-07-02T08:19:32.733Z",
-      "lastAccessed": "2025-07-02T08:19:32.733Z",
-      "status": "active",
-      "tags": [],
-      "template": "default"
-    },
-    "test-project": {
-      "name": "test-project",
-      "description": "",
-      "createdAt": "2025-07-02T08:19:32.733Z",
-      "lastAccessed": "2025-07-02T08:19:32.733Z",
-      "status": "active",
-      "tags": [],
-      "template": "default"
-    },
-    "test-project-init": {
-      "name": "test-project-init",
-      "description": "",
+    "prd-ass-01": {
+      "name": "prd助手01",
+      "description": "帮助澄清需求，编写文档",
       "template": "default",
-      "createdAt": "2025-07-03T01:25:55.126Z",
-      "lastAccessed": "2025-07-03T01:25:55.126Z",
-      "status": "active"
-    },
-    "e2e-test-1751506337": {
-      "name": "e2e-test-1751506337",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:32:17.871Z",
-      "lastAccessed": "2025-07-03T01:32:17.871Z",
-      "status": "active"
-    },
-    "e2e-test-project-2": {
-      "name": "e2e-test-project-2",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:55:52.856Z",
-      "lastAccessed": "2025-07-03T02:15:06.203Z",
-      "status": "active"
-    },
-    "test-config": {
-      "name": "test-config",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:35:16.186Z",
-      "lastAccessed": "2025-07-03T01:35:16.186Z",
-      "status": "active"
-    },
-    "e2e-test-1751506562": {
-      "name": "e2e-test-1751506562",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:36:02.812Z",
-      "lastAccessed": "2025-07-03T01:36:02.812Z",
-      "status": "active"
-    },
-    "e2e-test-1751506713": {
-      "name": "e2e-test-1751506713",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:38:33.589Z",
-      "lastAccessed": "2025-07-03T01:38:33.589Z",
-      "status": "active"
-    },
-    "test-new-project": {
-      "name": "test-new-project",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:41:21.220Z",
-      "lastAccessed": "2025-07-03T01:41:21.222Z",
-      "status": "active"
-    },
-    "e2e-test-1751506912": {
-      "name": "e2e-test-1751506912",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:41:52.876Z",
-      "lastAccessed": "2025-07-03T01:41:52.876Z",
-      "status": "active"
-    },
-    "e2e-test-1751507096": {
-      "name": "e2e-test-1751507096",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:44:56.773Z",
-      "lastAccessed": "2025-07-03T01:44:56.773Z",
-      "status": "active"
-    },
-    "e2e-test-1751507372": {
-      "name": "e2e-test-1751507372",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:49:32.176Z",
-      "lastAccessed": "2025-07-03T01:49:32.176Z",
-      "status": "active"
-    },
-    "e2e-test-1751507458": {
-      "name": "e2e-test-1751507458",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:50:58.156Z",
-      "lastAccessed": "2025-07-03T01:50:58.156Z",
-      "status": "active"
-    },
-    "e2e-test-1751507517": {
-      "name": "e2e-test-1751507517",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:51:57.583Z",
-      "lastAccessed": "2025-07-03T01:51:57.583Z",
-      "status": "active"
-    },
-    "e2e-test-1751507794": {
-      "name": "e2e-test-1751507794",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T01:56:34.804Z",
-      "lastAccessed": "2025-07-03T01:56:34.804Z",
-      "status": "active"
-    },
-    "e2e-test-1751508691": {
-      "name": "e2e-test-1751508691",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T02:11:31.775Z",
-      "lastAccessed": "2025-07-03T02:11:31.775Z",
-      "status": "active"
-    },
-    "e2e-test-1751508893": {
-      "name": "e2e-test-1751508893",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-03T02:14:53.706Z",
-      "lastAccessed": "2025-07-03T02:14:53.706Z",
-      "status": "active"
-    },
-    "demo-complete-project": {
-      "name": "demo-complete-project",
-      "description": "",
-      "template": "default",
-      "createdAt": "2025-07-08T03:25:13.167Z",
-      "lastAccessed": "2025-07-08T03:37:22.971Z",
-      "status": "active"
-    },
-    "test-project-001": {
-      "name": "测试项目001",
-      "description": "通过API创建的测试项目",
-      "template": "default",
-      "createdAt": "2025-07-08T07:57:23.301Z",
-      "lastAccessed": "2025-07-08T07:57:23.301Z",
-      "status": "active"
-    },
-    "product-website-project": {
-      "name": "产品官网项目",
-      "description": "构建现代化的产品官网，包含产品展示、用户注册、试用申请等核心功能",
-      "template": "default",
-      "createdAt": "2025-07-08T08:05:12.865Z",
-      "lastAccessed": "2025-07-08T08:05:12.865Z",
-      "status": "active"
-    },
-    "test-proj-002": {
-      "name": "测试项目002",
-      "description": "测试项目002",
-      "template": "default",
-      "createdAt": "2025-07-09T01:08:47.658Z",
-      "lastAccessed": "2025-07-09T01:08:47.658Z",
-      "status": "active"
-    },
-    "t": {
-      "name": "t",
-      "description": "t",
-      "template": "default",
-      "createdAt": "2025-07-09T01:09:28.685Z",
-      "lastAccessed": "2025-07-09T01:09:28.685Z",
-      "status": "active"
-    },
-    "test-web-project": {
-      "name": "Web测试项目",
-      "description": "通过web页面创建的测试项目",
-      "template": "default",
-      "createdAt": "2025-07-09T01:43:30.229Z",
-      "lastAccessed": "2025-07-09T01:43:30.229Z",
-      "status": "active"
-    },
-    "api-test-project": {
-      "name": "API测试项目",
-      "description": "通过Express API直接创建的项目",
-      "template": "default",
-      "createdAt": "2025-07-09T01:48:26.480Z",
-      "lastAccessed": "2025-07-09T01:48:26.480Z",
-      "status": "active"
-    },
-    "prd-assisent": {
-      "name": "需求文档助手",
-      "description": "帮助澄清需求完成prd文档编写",
-      "template": "default",
-      "createdAt": "2025-07-09T09:33:20.837Z",
-      "lastAccessed": "2025-07-09T09:33:20.837Z",
-      "status": "active"
-    },
-    "prd-assisent-001": {
-      "name": "需求文档助手001",
-      "description": "prd-assisent",
-      "template": "default",
-      "createdAt": "2025-07-09T12:14:16.656Z",
-      "lastAccessed": "2025-07-09T12:14:16.656Z",
-      "status": "active"
-    },
-    "test-comprehensive-project": {
-      "name": "综合测试项目",
-      "description": "一个包含所有功能的完整测试项目，用于验证TaskMaster的所有功能",
-      "template": "default",
-      "createdAt": "2025-01-10T05:00:00.000Z",
-      "lastAccessed": "2025-01-10T05:00:00.000Z",
-      "status": "active"
-    },
-    "prd-ass-002": {
-      "name": "需求文档助手002",
-      "description": "通过Web页面创建的PRD助手项目",
-      "template": "default",
-      "createdAt": "2025-07-10T06:25:17.142Z",
-      "lastAccessed": "2025-07-10T06:25:17.142Z",
+      "createdAt": "2025-07-11T03:04:23.146Z",
+      "lastAccessed": "2025-07-11T03:04:23.146Z",
       "status": "active"
     }
   },
-  "metadata": {
-    "totalProjects": 23,
-    "activeProjects": 23,
-    "version": "1.0.0",
-    "lastUpdated": "2025-07-10T06:25:17.142Z"
+  "templates": {
+    "default": {
+      "name": "Default Project Template",
+      "description": "Standard project template with basic structure",
+      "structure": {
+        "tasks": true,
+        "docs": true,
+        "reports": true
+      }
+    }
   },
-  "lastUpdated": "2025-07-10T06:25:17.142Z"
+  "settings": {
+    "defaultTemplate": "default",
+    "autoCleanup": {
+      "enabled": false,
+      "inactiveDays": 90
+    }
+  },
+  "version": "1.0.0",
+  "lastUpdated": "2025-07-11T03:04:23.146Z"
 }
