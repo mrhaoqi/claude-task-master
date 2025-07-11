@@ -1,9 +1,0 @@
-{
-  "name": "test-comprehensive-project",
-  "displayName": "综合测试项目",
-  "description": "一个包含所有功能的完整测试项目，用于验证TaskMaster的所有功能",
-  "version": "1.0.0",
-  "createdAt": "2025-01-10T05:00:00.000Z",
-  "updatedAt": "2025-01-10T05:00:00.000Z",
-  "status": "active"
-}
