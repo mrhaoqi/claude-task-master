@@ -891,8 +891,18 @@ ${prdContent}
 
             // 预先验证任务是否存在，避免原始脚本中的readJSON问题
             const tasksData = JSON.parse(await fs.readFile(tasksPath, 'utf8'));
-            const mainTasks = tasksData.main?.tasks || [];
+            // 检查不同的可能结构：master.tasks 或 main.tasks 或直接的 tasks 数组
+            const mainTasks = tasksData.master?.tasks || tasksData.main?.tasks || tasksData.tasks || [];
             const taskExists = mainTasks.some(t => t.id === parseInt(taskId, 10));
+
+            this.logger.debug('Task validation', {
+                taskId,
+                taskIdType: typeof taskId,
+                parsedTaskId: parseInt(taskId, 10),
+                tasksStructure: Object.keys(tasksData),
+                mainTasksLength: mainTasks.length,
+                taskIds: mainTasks.map(t => t.id)
+            });
 
             if (!taskExists) {
                 throw new Error(`Task ${taskId} not found in project ${path.basename(projectPath)}`);
