@@ -647,13 +647,58 @@ ${prdContent}
             const prompt = `${title}\n\n${description}`;
             const dependencies = [];
 
-            // 获取全局配置并转换为原始脚本期望的格式
-            const globalConfig = await this.configManager.getGlobalConfig();
-            const legacyConfig = this._convertToLegacyConfig(globalConfig);
+            // 使用根目录的.taskmaster/config.json配置文件
+            const rootConfigPath = path.join(process.cwd(), '.taskmaster', 'config.json');
+            const projectConfigPath = path.join(projectPath, '.taskmaster', 'config.json');
 
-            // 临时创建配置文件供原始脚本使用
-            tempConfigPath = path.join(projectPath, '.taskmaster', 'config.json');
-            await this._writeJSON(tempConfigPath, legacyConfig);
+            try {
+                // 首先尝试读取根目录的配置文件
+                const configData = await fs.readFile(rootConfigPath, 'utf8');
+                const rootConfig = JSON.parse(configData);
+                this.logger.debug('Using root config for project', {
+                    hasModels: !!rootConfig.models,
+                    mainProvider: rootConfig.models?.main?.provider,
+                    mainModel: rootConfig.models?.main?.modelId
+                });
+
+                // 将根配置复制到项目目录（如果不存在或需要更新）
+                try {
+                    const existingConfigData = await fs.readFile(projectConfigPath, 'utf8');
+                    const existingConfig = JSON.parse(existingConfigData);
+
+                    // 检查是否需要更新项目配置
+                    if (existingConfig.models?.main?.provider !== rootConfig.models?.main?.provider ||
+                        existingConfig.models?.main?.modelId !== rootConfig.models?.main?.modelId) {
+                        this.logger.info('Updating project config with root config');
+                        await this._writeJSON(projectConfigPath, rootConfig);
+                    }
+                } catch (projectError) {
+                    if (projectError.code === 'ENOENT') {
+                        // 项目配置不存在，创建它
+                        this.logger.info('Creating project config from root config');
+                        await this._writeJSON(projectConfigPath, rootConfig);
+                    } else {
+                        throw projectError;
+                    }
+                }
+
+                tempConfigPath = projectConfigPath;
+
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    // 根配置不存在，使用全局配置作为后备
+                    this.logger.warn('Root config not found, using global config as fallback');
+                    const globalConfig = await this.configManager.getGlobalConfig();
+                    const legacyConfig = this._convertToLegacyConfig(globalConfig);
+
+                    // 创建项目配置文件
+                    await this._writeJSON(projectConfigPath, legacyConfig);
+                    tempConfigPath = projectConfigPath;
+                    this.logger.info('Created project config file from global config');
+                } else {
+                    throw error;
+                }
+            }
 
             // 创建兼容的logger对象
             const compatibleLogger = {
@@ -701,15 +746,9 @@ ${prdContent}
             this.logger.error('Add task failed', { error: error.message, projectId });
             throw error;
         } finally {
-            // 清理临时配置文件
-            if (tempConfigPath) {
-                try {
-                    await this._deleteFile(tempConfigPath);
-                    this.logger.debug(`Cleaned up temporary config file: ${tempConfigPath}`);
-                } catch (cleanupError) {
-                    this.logger.warn('Failed to cleanup temporary config file', { error: cleanupError.message });
-                }
-            }
+            // 注意：不删除项目配置文件，因为它是项目的持久配置
+            // tempConfigPath 现在指向项目的 .taskmaster/config.json，应该保留
+            this.logger.debug('Task operation completed, project config preserved');
         }
     }
 
@@ -767,13 +806,58 @@ ${prdContent}
             const projectPath = this.getProjectPath(projectId);
             const tasksPath = this.pathManager.getTasksPath(projectId);
 
-            // 获取全局配置并转换为原始脚本期望的格式
-            const globalConfig = await this.configManager.getGlobalConfig();
-            const legacyConfig = this._convertToLegacyConfig(globalConfig);
+            // 使用根目录的.taskmaster/config.json配置文件
+            const rootConfigPath = path.join(process.cwd(), '.taskmaster', 'config.json');
+            const projectConfigPath = path.join(projectPath, '.taskmaster', 'config.json');
 
-            // 临时创建配置文件供原始脚本使用
-            tempConfigPath = path.join(this.pathManager.getTaskmasterDir(projectId), 'config.json');
-            await this._writeJSON(tempConfigPath, legacyConfig);
+            try {
+                // 首先尝试读取根目录的配置文件
+                const configData = await fs.readFile(rootConfigPath, 'utf8');
+                const rootConfig = JSON.parse(configData);
+                this.logger.debug('Using root config for expandTask', {
+                    hasModels: !!rootConfig.models,
+                    mainProvider: rootConfig.models?.main?.provider,
+                    mainModel: rootConfig.models?.main?.modelId
+                });
+
+                // 将根配置复制到项目目录（如果不存在或需要更新）
+                try {
+                    const existingConfigData = await fs.readFile(projectConfigPath, 'utf8');
+                    const existingConfig = JSON.parse(existingConfigData);
+
+                    // 检查是否需要更新项目配置
+                    if (existingConfig.models?.main?.provider !== rootConfig.models?.main?.provider ||
+                        existingConfig.models?.main?.modelId !== rootConfig.models?.main?.modelId) {
+                        this.logger.info('Updating project config with root config for expandTask');
+                        await this._writeJSON(projectConfigPath, rootConfig);
+                    }
+                } catch (projectError) {
+                    if (projectError.code === 'ENOENT') {
+                        // 项目配置不存在，创建它
+                        this.logger.info('Creating project config from root config for expandTask');
+                        await this._writeJSON(projectConfigPath, rootConfig);
+                    } else {
+                        throw projectError;
+                    }
+                }
+
+                tempConfigPath = projectConfigPath;
+
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    // 根配置不存在，使用全局配置作为后备
+                    this.logger.warn('Root config not found for expandTask, using global config as fallback');
+                    const globalConfig = await this.configManager.getGlobalConfig();
+                    const legacyConfig = this._convertToLegacyConfig(globalConfig);
+
+                    // 创建项目配置文件
+                    await this._writeJSON(projectConfigPath, legacyConfig);
+                    tempConfigPath = projectConfigPath;
+                    this.logger.info('Created project config file from global config for expandTask');
+                } else {
+                    throw error;
+                }
+            }
 
             this.logger.debug(`Created temporary config file for expandTask: ${tempConfigPath}`);
 
@@ -832,15 +916,9 @@ ${prdContent}
             this.logger.error('Expand task failed', { error: error.message, projectId, taskId });
             throw error;
         } finally {
-            // 清理临时配置文件
-            if (tempConfigPath) {
-                try {
-                    await this._deleteFile(tempConfigPath);
-                    this.logger.debug(`Cleaned up temporary config file: ${tempConfigPath}`);
-                } catch (cleanupError) {
-                    this.logger.warn('Failed to cleanup temporary config file', { error: cleanupError.message });
-                }
-            }
+            // 注意：不删除项目配置文件，因为它是项目的持久配置
+            // tempConfigPath 现在指向项目的 .taskmaster/config.json，应该保留
+            this.logger.debug('ExpandTask operation completed, project config preserved');
         }
     }
 
