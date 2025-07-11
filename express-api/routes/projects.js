@@ -208,14 +208,25 @@ router.post('/:projectId/initialize', async (req, res, next) => {
 router.delete('/:projectId', async (req, res, next) => {
     try {
         const { projectId } = req.params;
+        const { deleteFiles = false } = req.body;
         const projectManager = req.projectManager;
 
-        await projectManager.deleteProject(projectId);
+        await projectManager.deleteProject(projectId, { deleteFiles });
+
+        // 清理项目相关缓存
+        const { clearProjectCache } = await import('../middleware/response-cache.js');
+        clearProjectCache(projectId);
 
         res.json({
             success: true,
-            data: { deleted: true },
-            message: `Project ${projectId} deleted successfully`,
+            data: {
+                deleted: true,
+                deleteFiles,
+                projectId
+            },
+            message: deleteFiles
+                ? `Project ${projectId} and all files deleted successfully`
+                : `Project ${projectId} deleted successfully (files preserved)`,
             requestId: req.requestId
         });
 

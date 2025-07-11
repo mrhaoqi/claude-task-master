@@ -302,6 +302,47 @@ class ConfigManager {
   }
 
   /**
+   * 更新项目状态
+   */
+  async updateProjectStatus(projectId, status) {
+    if (this.projectsConfig.projects[projectId]) {
+      this.projectsConfig.projects[projectId].status = status;
+      this.projectsConfig.projects[projectId].lastUpdated = new Date().toISOString();
+      await this.saveProjectsConfig(this.projectsConfig);
+      this.logger.info('Project status updated', { projectId, status });
+    } else {
+      throw new Error(`Project ${projectId} not found in registry`);
+    }
+  }
+
+  /**
+   * 从注册文件中删除项目
+   */
+  async removeProjectFromRegistry(projectId) {
+    if (this.projectsConfig.projects[projectId]) {
+      delete this.projectsConfig.projects[projectId];
+      this.projectsConfig.lastUpdated = new Date().toISOString();
+      await this.saveProjectsConfig(this.projectsConfig);
+      this.logger.info('Project removed from registry', { projectId });
+    } else {
+      throw new Error(`Project ${projectId} not found in registry`);
+    }
+  }
+
+  /**
+   * 获取活跃项目列表（过滤掉已删除的项目）
+   */
+  getActiveProjects() {
+    const activeProjects = {};
+    for (const [projectId, project] of Object.entries(this.projectsConfig.projects)) {
+      if (project.status !== 'deleted') {
+        activeProjects[projectId] = project;
+      }
+    }
+    return activeProjects;
+  }
+
+  /**
    * 清除配置缓存
    */
   clearCache() {

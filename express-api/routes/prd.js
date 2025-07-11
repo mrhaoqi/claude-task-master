@@ -9,8 +9,10 @@ import { ValidationError } from '../middleware/error-handler.js';
 
 const router = express.Router({ mergeParams: true });
 const logger = createLogger('prd-router');
-const coreAdapter = new CoreAdapter();
-const pathManager = new ProjectPathManager();
+
+// 这些将在中间件中从 req.projectManager 获取
+let coreAdapter = null;
+let pathManager = null;
 
 /**
  * 自动查找PRD文档
@@ -68,6 +70,15 @@ async function findPrdDocument(projectId, prdFilePath = null) {
 
 // 项目验证中间件
 router.use(projectValidator);
+
+// 初始化适配器中间件
+router.use((req, res, next) => {
+    if (!coreAdapter || !pathManager) {
+        coreAdapter = req.projectManager.coreAdapter;
+        pathManager = req.projectManager.coreAdapter.pathManager;
+    }
+    next();
+});
 
 // 解析PRD时需要文件锁
 router.use('/parse', prdFileLockMiddleware());

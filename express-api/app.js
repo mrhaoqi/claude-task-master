@@ -37,7 +37,7 @@ class TaskMasterServer {
         this.app = express();
         this.port = config.port || 3000;
         this.host = config.host || '0.0.0.0';
-        this.projectsDir = config.projectsDir || path.join(process.cwd(), 'projects');
+        this.projectsDir = config.projectsDir ? path.resolve(config.projectsDir) : path.join(process.cwd(), 'projects');
         
         this.projectManager = new ProjectManager(this.projectsDir);
         

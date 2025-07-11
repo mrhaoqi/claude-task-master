@@ -12,7 +12,7 @@ class ProjectManager {
         this.cache = getCacheManager();
         this.projects = new Map();
         this.configManager = new ConfigManager();
-        this.coreAdapter = new CoreAdapter();
+        this.coreAdapter = new CoreAdapter(projectsDir);
         this.cachePrefix = 'project:';
         this.cacheTTL = 600000; // 10分钟缓存
     }
@@ -327,24 +327,22 @@ class ProjectManager {
 
     listProjects() {
         const projects = [];
-        const projectsConfig = this.configManager.getProjectsConfig();
+        const activeProjects = this.configManager.getActiveProjects();
 
         for (const [projectId, project] of this.projects) {
-            const projectInfo = projectsConfig.projects[projectId] || {
-                name: projectId,
-                description: '',
-                template: 'default',
-                createdAt: new Date().toISOString()
-            };
-
-            projects.push({
-                id: projectId,
-                name: projectInfo.name,
-                description: projectInfo.description,
-                template: projectInfo.template,
-                created: projectInfo.createdAt,
-                lastAccessed: project.lastAccessed
-            });
+            // 只显示活跃状态的项目
+            const projectInfo = activeProjects[projectId];
+            if (projectInfo) {
+                projects.push({
+                    id: projectId,
+                    name: projectInfo.name,
+                    description: projectInfo.description,
+                    template: projectInfo.template,
+                    created: projectInfo.createdAt,
+                    lastAccessed: project.lastAccessed,
+                    status: projectInfo.status
+                });
+            }
         }
 
         return projects.sort((a, b) =>
@@ -352,22 +350,30 @@ class ProjectManager {
         );
     }
 
-    async deleteProject(projectId) {
+    async deleteProject(projectId, options = {}) {
+        const { deleteFiles = false } = options;
+
         if (!this.projects.has(projectId)) {
             throw new Error(`Project ${projectId} not found`);
         }
 
         const projectPath = this.getProjectPath(projectId);
-        
+
         try {
-            // 删除项目目录
-            await fs.rm(projectPath, { recursive: true, force: true });
-            
-            // 从缓存中移除
+            if (deleteFiles) {
+                // 硬删除：删除项目文件夹和注册信息
+                await fs.rm(projectPath, { recursive: true, force: true });
+                await this.configManager.removeProjectFromRegistry(projectId);
+                this.logger.info(`Hard deleted project: ${projectId} (files and registry)`);
+            } else {
+                // 软删除：只更新状态为deleted
+                await this.configManager.updateProjectStatus(projectId, 'deleted');
+                this.logger.info(`Soft deleted project: ${projectId} (status updated)`);
+            }
+
+            // 从内存缓存中移除
             this.projects.delete(projectId);
-            
-            this.logger.info(`Deleted project: ${projectId}`);
-            
+
         } catch (error) {
             throw new Error(`Failed to delete project ${projectId}: ${error.message}`);
         }

@@ -1,32 +1,38 @@
 {
+  "version": "1.0.0",
   "projects": {
-    "prd-ass-01": {
-      "name": "prd助手01",
-      "description": "帮助澄清需求，编写文档",
+    "test-final": {
+      "name": "最终测试",
+      "description": "测试项目是否在正确位置创建",
       "template": "default",
-      "createdAt": "2025-07-11T03:04:23.146Z",
-      "lastAccessed": "2025-07-11T03:04:23.146Z",
+      "createdAt": "2025-07-11T07:42:22.067Z",
+      "lastAccessed": "2025-07-11T07:42:22.067Z",
+      "status": "active"
+    },
+    "prd-001": {
+      "name": "需求助手001",
+      "description": "帮助澄清需求编写文档",
+      "template": "default",
+      "createdAt": "2025-07-11T08:07:07.788Z",
+      "lastAccessed": "2025-07-11T08:07:07.788Z",
+      "status": "active"
+    },
+    "test-fix": {
+      "name": "测试修复",
+      "description": "测试PRD路径修复",
+      "template": "default",
+      "createdAt": "2025-07-11T08:05:27.221Z",
+      "lastAccessed": "2025-07-11T08:05:27.221Z",
+      "status": "active"
+    },
+    "prd-002": {
+      "name": "prd-002",
+      "description": "",
+      "template": "default",
+      "createdAt": "2025-07-11T10:00:27.662Z",
+      "lastAccessed": "2025-07-11T10:00:27.662Z",
       "status": "active"
     }
   },
-  "templates": {
-    "default": {
-      "name": "Default Project Template",
-      "description": "Standard project template with basic structure",
-      "structure": {
-        "tasks": true,
-        "docs": true,
-        "reports": true
-      }
-    }
-  },
-  "settings": {
-    "defaultTemplate": "default",
-    "autoCleanup": {
-      "enabled": false,
-      "inactiveDays": 90
-    }
-  },
-  "version": "1.0.0",
-  "lastUpdated": "2025-07-11T03:04:23.146Z"
+  "lastUpdated": "2025-07-11T10:00:27.662Z"
 }

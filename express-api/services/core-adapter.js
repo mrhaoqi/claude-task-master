@@ -12,8 +12,10 @@ import { generateObjectService } from '../../scripts/modules/ai-services-unified
  * 确保所有数据操作都使用正确的 projects/{project-id}/.taskmaster/ 路径结构
  */
 class ProjectPathManager {
-    constructor() {
-        this.projectsRoot = path.resolve(process.cwd(), 'projects');
+    constructor(projectsDir = null) {
+        // 使用传入的项目目录，或者从环境变量获取，或者使用默认值
+        const configuredProjectsDir = projectsDir || process.env.PROJECTS_DIR || '../projects';
+        this.projectsRoot = path.resolve(configuredProjectsDir);
     }
 
     /**
@@ -195,11 +197,11 @@ const prdResponseSchema = z.object({
 });
 
 class CoreAdapter {
-    constructor() {
+    constructor(projectsDir = null) {
         this.logger = logger;
         this.scriptsPath = path.join(__dirname, '../../scripts');
         this.configManager = new ConfigManager();
-        this.pathManager = new ProjectPathManager();
+        this.pathManager = new ProjectPathManager(projectsDir);
     }
 
     /**
