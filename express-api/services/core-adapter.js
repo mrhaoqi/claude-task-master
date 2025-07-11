@@ -214,8 +214,8 @@ class CoreAdapter {
      */
     _convertToLegacyConfig(globalConfig) {
         // 安全检查
-        if (!globalConfig || !globalConfig.ai || !globalConfig.ai.main) {
-            this.logger.warn('Invalid global config, using defaults');
+        if (!globalConfig) {
+            this.logger.warn('No global config provided, using defaults');
             return {
                 models: {
                     main: {
@@ -243,31 +243,43 @@ class CoreAdapter {
             };
         }
 
-        // 原始脚本期望 'models' 结构，而不是 'ai' 结构
-        return {
-            models: {
-                main: {
-                    provider: globalConfig.ai.main.provider,
-                    modelId: globalConfig.ai.main.modelId,
-                    maxTokens: globalConfig.ai.main.maxTokens,
-                    temperature: globalConfig.ai.main.temperature,
-                    model: globalConfig.ai.main.modelId, // 添加model字段以兼容
-                    ...(globalConfig.ai.main.baseURL && { baseURL: globalConfig.ai.main.baseURL })
-                },
-                research: {
-                    provider: globalConfig.ai.research?.provider || globalConfig.ai.main.provider,
-                    modelId: globalConfig.ai.research?.modelId || globalConfig.ai.main.modelId,
-                    maxTokens: globalConfig.ai.research?.maxTokens || globalConfig.ai.main.maxTokens,
-                    temperature: globalConfig.ai.research?.temperature || 0.1,
-                    model: globalConfig.ai.research?.modelId || globalConfig.ai.main.modelId,
-                    ...(globalConfig.ai.research?.baseURL && { baseURL: globalConfig.ai.research.baseURL })
-                },
-                fallback: {
-                    provider: globalConfig.ai.fallback?.provider || globalConfig.ai.main.provider,
-                    modelId: globalConfig.ai.fallback?.modelId || globalConfig.ai.main.modelId,
-                    maxTokens: globalConfig.ai.fallback?.maxTokens || globalConfig.ai.main.maxTokens,
-                    temperature: globalConfig.ai.fallback?.temperature || globalConfig.ai.main.temperature,
-                    model: globalConfig.ai.fallback?.modelId || globalConfig.ai.main.modelId,
+        // 检查配置格式：支持两种格式 - 新的 'ai' 结构和旧的 'models' 结构
+        this.logger.debug('Converting global config', { hasModels: !!globalConfig.models, hasAi: !!globalConfig.ai });
+
+        if (globalConfig.models) {
+            // 如果已经是 'models' 结构，直接返回
+            this.logger.debug('Using existing models configuration format', {
+                mainProvider: globalConfig.models.main?.provider,
+                mainModel: globalConfig.models.main?.modelId
+            });
+            return globalConfig;
+        } else if (globalConfig.ai && globalConfig.ai.main) {
+            // 如果是 'ai' 结构，转换为 'models' 结构
+            this.logger.debug('Converting ai configuration to models format');
+            return {
+                models: {
+                    main: {
+                        provider: globalConfig.ai.main.provider,
+                        modelId: globalConfig.ai.main.modelId,
+                        maxTokens: globalConfig.ai.main.maxTokens,
+                        temperature: globalConfig.ai.main.temperature,
+                        model: globalConfig.ai.main.modelId, // 添加model字段以兼容
+                        ...(globalConfig.ai.main.baseURL && { baseURL: globalConfig.ai.main.baseURL })
+                    },
+                    research: {
+                        provider: globalConfig.ai.research?.provider || globalConfig.ai.main.provider,
+                        modelId: globalConfig.ai.research?.modelId || globalConfig.ai.main.modelId,
+                        maxTokens: globalConfig.ai.research?.maxTokens || globalConfig.ai.main.maxTokens,
+                        temperature: globalConfig.ai.research?.temperature || 0.1,
+                        model: globalConfig.ai.research?.modelId || globalConfig.ai.main.modelId,
+                        ...(globalConfig.ai.research?.baseURL && { baseURL: globalConfig.ai.research.baseURL })
+                    },
+                    fallback: {
+                        provider: globalConfig.ai.fallback?.provider || globalConfig.ai.main.provider,
+                        modelId: globalConfig.ai.fallback?.modelId || globalConfig.ai.main.modelId,
+                        maxTokens: globalConfig.ai.fallback?.maxTokens || globalConfig.ai.main.maxTokens,
+                        temperature: globalConfig.ai.fallback?.temperature || globalConfig.ai.main.temperature,
+                        model: globalConfig.ai.fallback?.modelId || globalConfig.ai.main.modelId,
                     ...(globalConfig.ai.fallback?.baseURL && { baseURL: globalConfig.ai.fallback.baseURL })
                 }
             },
@@ -282,6 +294,35 @@ class CoreAdapter {
                 userId: "default-user"
             }
         };
+        } else {
+            // 无效配置，使用默认值
+            this.logger.warn('Invalid global config format, using defaults');
+            return {
+                models: {
+                    main: {
+                        provider: 'openai',
+                        modelId: 'gpt-4',
+                        maxTokens: 4000,
+                        temperature: 0.7,
+                        model: 'gpt-4'
+                    },
+                    research: {
+                        provider: 'openai',
+                        modelId: 'gpt-4',
+                        maxTokens: 4000,
+                        temperature: 0.1,
+                        model: 'gpt-4'
+                    },
+                    fallback: {
+                        provider: 'openai',
+                        modelId: 'gpt-4',
+                        maxTokens: 4000,
+                        temperature: 0.7,
+                        model: 'gpt-4'
+                    }
+                }
+            };
+        }
     }
 
     /**
