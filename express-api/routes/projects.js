@@ -718,4 +718,68 @@ router.post('/:projectId/tags/:sourceName/copy', projectValidator, async (req, r
     }
 });
 
+// AI驱动的项目研究
+router.post('/:projectId/research', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const {
+            query,
+            taskIds,
+            filePaths,
+            customContext,
+            includeProjectTree = false,
+            detailLevel = 'medium',
+            saveTo,
+            saveToFile = false
+        } = req.body;
+
+        if (!query) {
+            throw new ValidationError('Research query is required');
+        }
+
+        logger.debug('Research request', {
+            projectId,
+            query: query.substring(0, 100) + (query.length > 100 ? '...' : ''),
+            taskIds,
+            filePaths,
+            detailLevel,
+            includeProjectTree,
+            saveTo,
+            saveToFile,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.performResearch(
+            projectId,
+            {
+                query,
+                taskIds,
+                filePaths,
+                customContext,
+                includeProjectTree,
+                detailLevel,
+                saveTo,
+                saveToFile
+            }
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: result.message || 'Research completed successfully',
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error performing research:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            query: req.body.query?.substring(0, 100),
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
 export default router;

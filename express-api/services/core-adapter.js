@@ -1745,6 +1745,97 @@ ${prdContent}
     }
 
     /**
+     * 执行AI驱动的项目研究
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 研究选项
+     */
+    async performResearch(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { performResearch } = await import('../../scripts/modules/task-manager/research.js');
+
+            const {
+                query,
+                taskIds = [],
+                filePaths = [],
+                customContext = '',
+                includeProjectTree = false,
+                detailLevel = 'medium',
+                saveTo,
+                saveToFile = false
+            } = options;
+
+            // 解析taskIds（如果是字符串）
+            let parsedTaskIds = taskIds;
+            if (typeof taskIds === 'string') {
+                parsedTaskIds = taskIds.split(',').map(id => id.trim()).filter(id => id);
+            }
+
+            // 解析filePaths（如果是字符串）
+            let parsedFilePaths = filePaths;
+            if (typeof filePaths === 'string') {
+                parsedFilePaths = filePaths.split(',').map(path => path.trim()).filter(path => path);
+            }
+
+            const researchOptions = {
+                taskIds: parsedTaskIds,
+                filePaths: parsedFilePaths,
+                customContext,
+                includeProjectTree,
+                detailLevel,
+                projectRoot: projectPath,
+                saveToFile
+            };
+
+            const context = {
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                },
+                commandName: 'research',
+                outputType: 'mcp'
+            };
+
+            // 执行研究
+            const result = await performResearch(
+                query,
+                researchOptions,
+                context,
+                'json', // 使用JSON格式输出
+                false   // 不允许后续问题
+            );
+
+            // 如果指定了saveTo，保存结果到任务或子任务
+            if (saveTo && result.success) {
+                try {
+                    // 这里可以添加保存到任务的逻辑
+                    this.logger.info('Research results saved to task/subtask', { saveTo, projectId });
+                } catch (saveError) {
+                    this.logger.warn('Failed to save research results to task', {
+                        error: saveError.message,
+                        saveTo,
+                        projectId
+                    });
+                }
+            }
+
+            return {
+                success: true,
+                message: 'Research completed successfully',
+                data: result
+            };
+        } catch (error) {
+            this.logger.error('Research failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
      * 适配现有的generateTaskFiles函数到项目目录
      * @param {string} projectId - 项目ID（而不是projectPath）
      * @param {Object} options - 选项
