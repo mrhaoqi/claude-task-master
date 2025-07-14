@@ -1217,6 +1217,40 @@ ${prdContent}
     }
 
     /**
+     * 适配现有的clearSubtasks函数到项目目录 - 删除任务的所有子任务
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 任务ID
+     * @param {Object} options - 选项
+     */
+    async removeAllSubtasks(projectId, taskId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: this.logger,
+                tag: options.tag || 'main',
+                ...options
+            };
+
+            const { default: clearSubtasks } = await import('../../scripts/modules/task-manager/clear-subtasks.js');
+
+            // clearSubtasks期望字符串格式的taskId
+            const result = clearSubtasks(tasksPath, String(taskId), context);
+
+            return {
+                success: true,
+                message: `All subtasks removed from task ${taskId}`,
+                taskId: taskId
+            };
+        } catch (error) {
+            this.logger.error('Remove all subtasks failed', { error: error.message, projectId, taskId });
+            throw error;
+        }
+    }
+
+    /**
      * 适配现有的generateTaskFiles函数到项目目录
      * @param {string} projectId - 项目ID（而不是projectPath）
      * @param {Object} options - 选项
@@ -1281,15 +1315,31 @@ ${prdContent}
             const projectPath = this.getProjectPath(projectId);
             const tasksPath = this.pathManager.getTasksPath(projectId);
 
-            const adaptedOptions = {
-                ...options,
+            // 提取参数
+            const numSubtasks = options.maxSubtasks || 5;
+            const useResearch = options.research || false;
+            const additionalContext = options.additionalContext || '';
+            const force = options.force || false;
+
+            const context = {
                 projectRoot: projectPath,
                 mcpLog: this.logger,
-                outputFormat: 'json'
+                tag: options.tag || 'main',
+                ...options
             };
 
+            const outputFormat = 'json';
+
             const { default: expandAllTasks } = await import('../../scripts/modules/task-manager/expand-all-tasks.js');
-            const result = await expandAllTasks(tasksPath, adaptedOptions);
+            const result = await expandAllTasks(
+                tasksPath,
+                numSubtasks,
+                useResearch,
+                additionalContext,
+                force,
+                context,
+                outputFormat
+            );
 
             return result;
         } catch (error) {
