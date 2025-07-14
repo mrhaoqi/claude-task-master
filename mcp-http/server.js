@@ -306,36 +306,39 @@ class TaskMasterRemoteMCPServer {
     return {
       tools: [
         // Group 1: 初始化与设置工具
-        {
-          name: 'initialize_project',
-          description: `Initialize a new TaskMaster project in ${projectId}`,
-          inputSchema: {
-            type: 'object',
-            properties: {
-              force: {
-                type: 'boolean',
-                description: 'Force initialization even if project already exists',
-                default: false,
-              },
-            },
-          },
-        },
-        {
-          name: 'models',
-          description: 'List available AI models and their configurations',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'rules',
-          description: 'Get TaskMaster rules and guidelines',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
+        // TODO: initialize_project工具在MCP HTTP服务下用不到，因为项目初始化通过Web界面完成
+        // {
+        //   name: 'initialize_project',
+        //   description: `Initialize a new TaskMaster project in ${projectId}`,
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {
+        //       force: {
+        //         type: 'boolean',
+        //         description: 'Force initialization even if project already exists',
+        //         default: false,
+        //       },
+        //     },
+        //   },
+        // },
+        // TODO: models工具在MCP HTTP服务下用不到，AI模型配置通过配置文件管理
+        // {
+        //   name: 'models',
+        //   description: 'List available AI models and their configurations',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {},
+        //   },
+        // },
+        // rules是本地用的，我们的远程服务不适用，所以注释掉吧。
+        // {
+        //   name: 'rules',
+        //   description: 'Get TaskMaster rules and guidelines',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {},
+        //   },
+        // },
         {
           name: 'parse_prd',
           description: `Parse PRD document from project ${projectId} and generate tasks. Automatically finds PRD document in project docs directory.`,
@@ -925,21 +928,21 @@ class TaskMasterRemoteMCPServer {
         //   },
         // },
 
-        // 操作状态工具
-        {
-          name: 'get_operation_status',
-          description: 'Get the status of a background operation',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              operationId: {
-                type: 'string',
-                description: 'The ID of the operation to check',
-              },
-            },
-            required: ['operationId'],
-          },
-        },
+        // TODO: 操作状态工具 - 原始TaskMaster中异步操作管理尚未实现，暂时注释
+        // {
+        //   name: 'get_operation_status',
+        //   description: 'Get the status of a background operation',
+        //   inputSchema: {
+        //     type: 'object',
+        //     properties: {
+        //       operationId: {
+        //         type: 'string',
+        //         description: 'The ID of the operation to check',
+        //       },
+        //     },
+        //     required: ['operationId'],
+        //   },
+        // },
 
         // 缓存统计工具 - 注释掉，原始版本没有
         // {
@@ -1031,12 +1034,15 @@ class TaskMasterRemoteMCPServer {
     try {
       switch (name) {
         // Group 1: 初始化与设置工具
-        case 'initialize_project':
-          return await this.handleInitializeProject(args);
-        case 'models':
-          return await this.handleModels(args);
-        case 'rules':
-          return await this.handleRules(args);
+        // TODO: initialize_project工具在MCP HTTP服务下用不到
+        // case 'initialize_project':
+        //   return await this.handleInitializeProject(args);
+        // TODO: models工具在MCP HTTP服务下用不到
+        // case 'models':
+        //   return await this.handleModels(args);
+        // rules是本地用的，我们的远程服务不适用，所以注释掉
+        // case 'rules':
+        //   return await this.handleRules(args);
         case 'parse_prd':
           return await this.handleParsePRD(args);
 
@@ -1118,9 +1124,14 @@ class TaskMasterRemoteMCPServer {
         // case 'switch_project':
         //   return await this.handleSwitchProject(args);
 
-        // 操作状态工具
-        case 'get_operation_status':
-          return await this.handleGetOperationStatus(args);
+        // 操作状态工具 //TODO 暂时还没实现
+        // 这个工具是为了支持异步操作管理而设计的，比如：
+        // 长时间运行的任务生成操作
+        // 复杂的PRD解析过程
+        // 大批量的任务更新操作
+        // 但目前在原始TaskMaster中，这个功能还没有完全实现，只是预留了接口。
+        // case 'get_operation_status':
+        //   return await this.handleGetOperationStatus(args);
 
         // 缓存统计工具 - 注释掉，原始版本没有
         // case 'cache_stats':
