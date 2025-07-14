@@ -439,4 +439,34 @@ router.delete('/:taskId/subtasks/:subtaskId', async (req, res, next) => {
     }
 });
 
+// 删除任务的所有子任务
+router.delete('/:taskId/subtasks', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+
+        const project = req.project;
+        const options = {
+            generateFiles: true
+        };
+
+        const result = await req.projectManager.coreAdapter.removeAllSubtasks(
+            projectId,
+            parseInt(taskId),
+            options
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `All subtasks removed from task ${taskId} successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error removing all subtasks:', error);
+        next(error);
+    }
+});
+
 export default router;
