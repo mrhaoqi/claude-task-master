@@ -2,6 +2,7 @@ import express from 'express';
 import { createLogger } from '../utils/logger.js';
 import { projectListCache } from '../middleware/response-cache.js';
 import { ValidationError, NotFoundError } from '../middleware/error-handler.js';
+import { projectValidator } from '../middleware/project-validator.js';
 import archiver from 'archiver';
 import path from 'path';
 import fs from 'fs';
@@ -399,6 +400,110 @@ router.get('/:projectId/ide-config/:ideType?', async (req, res, next) => {
         } else {
             next(error);
         }
+    }
+});
+
+// 验证项目依赖关系 - 只检查，不修复
+router.post('/:projectId/dependencies/validate', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+
+        logger.debug('Validate dependencies request', {
+            projectId,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.validateDependencies(
+            projectId,
+            req.body
+        );
+
+        // 根据验证结果返回适当的状态码
+        const statusCode = result.success ? 200 : 422; // 422 Unprocessable Entity for validation failures
+
+        res.status(statusCode).json({
+            success: result.success,
+            data: result.data,
+            message: result.message,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error validating dependencies:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
+// 修复项目依赖关系
+router.post('/:projectId/dependencies/fix', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+
+        logger.debug('Fix dependencies request', {
+            projectId,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.fixDependencies(
+            projectId,
+            req.body
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: 'Dependencies fixed successfully',
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error fixing dependencies:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
+// 获取项目标签列表
+router.get('/:projectId/tags', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { showMetadata = false } = req.query;
+
+        logger.debug('List tags request', {
+            projectId,
+            showMetadata,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.listTags(
+            projectId,
+            { showMetadata: showMetadata === 'true' }
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: 'Tags retrieved successfully',
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error listing tags:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            requestId: req.requestId
+        });
+        next(error);
     }
 });
 
