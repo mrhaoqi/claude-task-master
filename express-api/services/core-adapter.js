@@ -1044,7 +1044,7 @@ ${prdContent}
             };
 
             const { default: removeTask } = await import('../../scripts/modules/task-manager/remove-task.js');
-            const result = await removeTask(tasksPath, taskId, adaptedOptions);
+            const result = await removeTask(tasksPath, String(taskId), adaptedOptions);
 
             return result;
         } catch (error) {
@@ -1173,6 +1173,47 @@ ${prdContent}
         }
 
         return parts.join('\n');
+    }
+
+    /**
+     * 适配现有的removeSubtask函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 父任务ID
+     * @param {string|number} subtaskId - 子任务ID
+     * @param {Object} options - 选项
+     */
+    async removeSubtask(projectId, taskId, subtaskId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: this.logger,
+                tag: options.tag || 'main',
+                ...options
+            };
+
+            // 构建子任务ID（格式：parentId.subtaskId）
+            const fullSubtaskId = `${taskId}.${subtaskId}`;
+
+            const convertToTask = options.convertToTask || false;
+            const generateFiles = options.generateFiles !== false; // 默认为true
+
+            const { default: removeSubtask } = await import('../../scripts/modules/task-manager/remove-subtask.js');
+            const result = await removeSubtask(
+                tasksPath,
+                fullSubtaskId,
+                convertToTask,
+                generateFiles,
+                context
+            );
+
+            return result;
+        } catch (error) {
+            this.logger.error('Remove subtask failed', { error: error.message, projectId, taskId, subtaskId });
+            throw error;
+        }
     }
 
     /**
