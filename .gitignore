@@ -88,9 +88,6 @@ dev-debug.log
 *.sln
 *.sw?
 
-projects/
-projects/.registry/*
-projects/*
 
 # OS specific
 
