@@ -1035,7 +1035,7 @@ ${prdContent}
         try {
             const projectPath = this.getProjectPath(projectId);
             const tasksPath = this.pathManager.getTasksPath(projectId);
-            
+
             const adaptedOptions = {
                 ...options,
                 projectRoot: projectPath,
@@ -1045,12 +1045,134 @@ ${prdContent}
 
             const { default: removeTask } = await import('../../scripts/modules/task-manager/remove-task.js');
             const result = await removeTask(tasksPath, taskId, adaptedOptions);
-            
+
             return result;
         } catch (error) {
             this.logger.error('Remove task failed', { error: error.message, projectId });
             throw error;
         }
+    }
+
+    /**
+     * 适配现有的addSubtask函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} parentTaskId - 父任务ID
+     * @param {string} title - 子任务标题
+     * @param {string} description - 子任务描述
+     * @param {string} priority - 子任务优先级
+     * @param {Object} options - 选项
+     */
+    async addSubtask(projectId, parentTaskId, title, description, priority = 'medium', options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const newSubtaskData = {
+                title,
+                description,
+                details: options.details || '',
+                status: options.status || 'pending',
+                dependencies: options.dependencies || []
+            };
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: this.logger,
+                tag: options.tag || 'main',
+                ...options
+            };
+
+            const { default: addSubtask } = await import('../../scripts/modules/task-manager/add-subtask.js');
+            const result = await addSubtask(
+                tasksPath,
+                parentTaskId,
+                null, // existingTaskId - 我们创建新子任务，不转换现有任务
+                newSubtaskData,
+                true, // generateFiles
+                context
+            );
+
+            return result;
+        } catch (error) {
+            this.logger.error('Add subtask failed', { error: error.message, projectId, parentTaskId });
+            throw error;
+        }
+    }
+
+    /**
+     * 适配现有的updateSubtask函数到项目目录
+     * @param {string} projectId - 项目ID（而不是projectPath）
+     * @param {string|number} taskId - 父任务ID
+     * @param {string|number} subtaskId - 子任务ID
+     * @param {Object} updates - 更新内容
+     * @param {Object} options - 选项
+     */
+    async updateSubtask(projectId, taskId, subtaskId, updates, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: this.logger,
+                tag: options.tag || 'main',
+                ...options
+            };
+
+            // 构建子任务ID（格式：parentId.subtaskId）
+            const fullSubtaskId = `${taskId}.${subtaskId}`;
+
+            // 构建更新提示
+            const updatePrompt = this.buildSubtaskUpdatePrompt(updates);
+
+            const { updateSubtaskByIdDirect } = await import('../../mcp-server/src/core/direct-functions/update-subtask-by-id.js');
+            const result = await updateSubtaskByIdDirect(
+                {
+                    tasksJsonPath: tasksPath,
+                    id: fullSubtaskId,
+                    prompt: updatePrompt,
+                    research: false,
+                    projectRoot: projectPath
+                },
+                this.logger
+            );
+
+            if (!result.success) {
+                throw new Error(result.error?.message || 'Failed to update subtask');
+            }
+
+            return result.data;
+        } catch (error) {
+            this.logger.error('Update subtask failed', { error: error.message, projectId, taskId, subtaskId });
+            throw error;
+        }
+    }
+
+    /**
+     * 构建子任务更新提示
+     * @param {Object} updates - 更新内容
+     * @returns {string} 更新提示
+     */
+    buildSubtaskUpdatePrompt(updates) {
+        const parts = [];
+
+        if (updates.title) {
+            parts.push(`Title: ${updates.title}`);
+        }
+
+        if (updates.description) {
+            parts.push(`Description: ${updates.description}`);
+        }
+
+        if (updates.details) {
+            parts.push(`Details: ${updates.details}`);
+        }
+
+        if (updates.status) {
+            parts.push(`Status: ${updates.status}`);
+        }
+
+        return parts.join('\n');
     }
 
     /**
