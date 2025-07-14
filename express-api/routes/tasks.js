@@ -338,4 +338,72 @@ router.post('/generate-from-prd', async (req, res, next) => {
     }
 });
 
+// 创建子任务
+router.post('/:taskId/subtasks', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        const { title, description, priority = 'medium', details, status = 'pending' } = req.body;
+
+        if (!title || !description) {
+            throw new ValidationError('Title and description are required');
+        }
+
+        const project = req.project;
+        const options = {
+            details,
+            status,
+            dependencies: []
+        };
+
+        const result = await req.projectManager.coreAdapter.addSubtask(
+            projectId,
+            parseInt(taskId),
+            title,
+            description,
+            priority,
+            options
+        );
+
+        res.status(201).json({
+            success: true,
+            data: result,
+            message: `Subtask added to task ${taskId} successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error adding subtask:', error);
+        next(error);
+    }
+});
+
+// 更新子任务
+router.put('/:taskId/subtasks/:subtaskId', async (req, res, next) => {
+    try {
+        const { projectId, taskId, subtaskId } = req.params;
+        const updates = req.body;
+
+        const project = req.project;
+        const result = await req.projectManager.coreAdapter.updateSubtask(
+            projectId,
+            parseInt(taskId),
+            parseInt(subtaskId),
+            updates
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Subtask ${subtaskId} in task ${taskId} updated successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error updating subtask:', error);
+        next(error);
+    }
+});
+
 export default router;
