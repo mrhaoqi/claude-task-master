@@ -1779,11 +1779,11 @@ class TaskMasterRemoteMCPServer {
   }
 
   async handleDeleteTag(args) {
-    const { tagName, force = false } = args;
+    const { tagName, yes = true } = args; // 默认为true，跳过确认
 
     const result = await this.callApi(`tags/${tagName}`, {
       method: 'DELETE',
-      body: JSON.stringify({ force }),
+      body: JSON.stringify({ yes }),
     });
 
     return {
@@ -1818,7 +1818,7 @@ class TaskMasterRemoteMCPServer {
 
     const result = await this.callApi(`tags/${oldTagName}/rename`, {
       method: 'PUT',
-      body: JSON.stringify({ newTagName }),
+      body: JSON.stringify({ newName: newTagName }), // 修正参数名
     });
 
     return {
@@ -1832,11 +1832,14 @@ class TaskMasterRemoteMCPServer {
   }
 
   async handleCopyTag(args) {
-    const { sourceTagName, targetTagName } = args;
+    const { sourceTagName, targetTagName, description } = args;
 
     const result = await this.callApi(`tags/${sourceTagName}/copy`, {
       method: 'POST',
-      body: JSON.stringify({ targetTagName }),
+      body: JSON.stringify({
+        targetName: targetTagName, // 修正参数名
+        description
+      }),
     });
 
     return {
