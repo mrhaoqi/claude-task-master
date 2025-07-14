@@ -1251,6 +1251,275 @@ ${prdContent}
     }
 
     /**
+     * 移动任务
+     * @param {string} projectId - 项目ID
+     * @param {string|number} sourceId - 源任务ID
+     * @param {string|number} destinationId - 目标任务ID
+     * @param {Object} options - 选项
+     */
+    async moveTask(projectId, sourceId, destinationId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            // 暂时禁用文件生成以避免标签问题
+            const generateFiles = false; // options.generateFiles !== false;
+
+            const adaptedOptions = {
+                projectRoot: projectPath,
+                tag: options.tag || 'main'
+            };
+
+            const { default: moveTask } = await import('../../scripts/modules/task-manager/move-task.js');
+            const result = await moveTask(
+                tasksPath,
+                String(sourceId),
+                String(destinationId),
+                generateFiles,
+                adaptedOptions
+            );
+
+            return result;
+        } catch (error) {
+            this.logger.error('Move task failed', { error: error.message, projectId, sourceId, destinationId });
+            throw error;
+        }
+    }
+
+    /**
+     * 添加任务依赖
+     * @param {string} projectId - 项目ID
+     * @param {string|number} taskId - 任务ID
+     * @param {string|number} dependsOn - 依赖的任务ID
+     * @param {Object} options - 选项
+     */
+    async addDependency(projectId, taskId, dependsOn, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { addDependency } = await import('../../scripts/modules/dependency-manager.js');
+
+            // 格式化ID
+            const formattedTaskId = taskId && taskId.includes && taskId.includes('.') ? taskId : parseInt(taskId, 10);
+            const formattedDependsOn = dependsOn && dependsOn.includes && dependsOn.includes('.') ? dependsOn : parseInt(dependsOn, 10);
+
+            // 传递正确的context参数
+            const context = {
+                projectRoot: projectPath,
+                tag: options.tag || 'main'
+            };
+
+            await addDependency(tasksPath, formattedTaskId, formattedDependsOn, context);
+
+            return {
+                success: true,
+                message: `Successfully added dependency: Task ${formattedTaskId} now depends on ${formattedDependsOn}`,
+                taskId: formattedTaskId,
+                dependencyId: formattedDependsOn
+            };
+        } catch (error) {
+            this.logger.error('Add dependency failed', { error: error.message, projectId, taskId, dependsOn });
+            throw error;
+        }
+    }
+
+    /**
+     * 移除任务依赖
+     * @param {string} projectId - 项目ID
+     * @param {string|number} taskId - 任务ID
+     * @param {string|number} dependsOn - 要移除的依赖任务ID
+     * @param {Object} options - 选项
+     */
+    async removeDependency(projectId, taskId, dependsOn, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { removeDependency } = await import('../../scripts/modules/dependency-manager.js');
+
+            // 格式化ID
+            const formattedTaskId = taskId && taskId.includes && taskId.includes('.') ? taskId : parseInt(taskId, 10);
+            const formattedDependsOn = dependsOn && dependsOn.includes && dependsOn.includes('.') ? dependsOn : parseInt(dependsOn, 10);
+
+            // 传递正确的context参数
+            const context = {
+                projectRoot: projectPath,
+                tag: options.tag || 'main'
+            };
+
+            await removeDependency(tasksPath, formattedTaskId, formattedDependsOn, context);
+
+            return {
+                success: true,
+                message: `Successfully removed dependency: Task ${formattedTaskId} no longer depends on ${formattedDependsOn}`,
+                taskId: formattedTaskId,
+                dependencyId: formattedDependsOn
+            };
+        } catch (error) {
+            this.logger.error('Remove dependency failed', { error: error.message, projectId, taskId, dependsOn });
+            throw error;
+        }
+    }
+
+    /**
+     * 验证项目依赖关系 - 只检查，不修复
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async validateDependencies(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            // 导入验证函数
+            const { validateTaskDependencies } = await import('../../scripts/modules/dependency-manager.js');
+            const { readJSON } = await import('../../scripts/modules/utils.js');
+
+            const context = {
+                projectRoot: projectPath,
+                tag: options.tag || 'main'
+            };
+
+            // 读取任务数据
+            const data = readJSON(tasksPath, context.projectRoot, context.tag);
+            if (!data || !data.tasks) {
+                throw new Error('No valid tasks found in tasks.json');
+            }
+
+            // 执行验证 - 只检查，不修改
+            const validationResult = validateTaskDependencies(data.tasks);
+
+            // 计算统计信息
+            const taskCount = data.tasks.length;
+            let subtaskCount = 0;
+            data.tasks.forEach((task) => {
+                if (task.subtasks && Array.isArray(task.subtasks)) {
+                    subtaskCount += task.subtasks.length;
+                }
+            });
+
+            const responseData = {
+                valid: validationResult.valid,
+                issues: validationResult.issues || [],
+                statistics: {
+                    tasksChecked: taskCount,
+                    subtasksChecked: subtaskCount,
+                    issuesFound: validationResult.issues ? validationResult.issues.length : 0
+                },
+                projectId
+            };
+
+            if (validationResult.valid) {
+                return {
+                    success: true,
+                    message: 'All dependencies are valid',
+                    data: responseData
+                };
+            } else {
+                return {
+                    success: false,
+                    message: `Dependency validation failed. Found ${validationResult.issues.length} issue(s)`,
+                    data: responseData
+                };
+            }
+        } catch (error) {
+            this.logger.error('Validate dependencies failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 修复项目依赖关系 - 自动修复可修复的问题
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async fixDependencies(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            // 导入修复函数和验证函数
+            const { fixDependenciesCommand, validateTaskDependencies } = await import('../../scripts/modules/dependency-manager.js');
+            const { readJSON } = await import('../../scripts/modules/utils.js');
+
+            const context = {
+                projectRoot: projectPath,
+                tag: options.tag || 'main'
+            };
+
+            // 先验证以获取修复前的问题统计
+            const dataBefore = readJSON(tasksPath, context.projectRoot, context.tag);
+            const validationBefore = validateTaskDependencies(dataBefore.tasks);
+
+            // 执行修复
+            await fixDependenciesCommand(tasksPath, { context });
+
+            // 再次验证以获取修复后的状态
+            const dataAfter = readJSON(tasksPath, context.projectRoot, context.tag);
+            const validationAfter = validateTaskDependencies(dataAfter.tasks);
+
+            // 计算修复统计
+            const issuesFixed = validationBefore.issues.length - validationAfter.issues.length;
+
+            const responseData = {
+                issuesFound: validationBefore.issues.length,
+                issuesFixed: issuesFixed,
+                remainingIssues: validationAfter.issues.length,
+                isFullyFixed: validationAfter.valid,
+                beforeValidation: validationBefore,
+                afterValidation: validationAfter,
+                projectId
+            };
+
+            return {
+                success: true,
+                message: `Dependencies fix completed. Fixed ${issuesFixed} issue(s)`,
+                data: responseData
+            };
+        } catch (error) {
+            this.logger.error('Fix dependencies failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 获取项目标签列表
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async listTags(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { tags } = await import('../../scripts/modules/task-manager/tag-management.js');
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                }
+            };
+
+            const result = await tags(tasksPath, options, context, 'json');
+
+            return {
+                success: true,
+                data: result,
+                projectId
+            };
+        } catch (error) {
+            this.logger.error('List tags failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
      * 适配现有的generateTaskFiles函数到项目目录
      * @param {string} projectId - 项目ID（而不是projectPath）
      * @param {Object} options - 选项
