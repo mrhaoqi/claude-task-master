@@ -469,4 +469,124 @@ router.delete('/:taskId/subtasks', async (req, res, next) => {
     }
 });
 
+// 移动任务
+router.put('/:taskId/move', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        const { destinationId, newPosition, generateFiles } = req.body;
+
+        // 支持两种参数名称：destinationId 和 newPosition（向后兼容）
+        const targetDestinationId = destinationId || newPosition;
+
+        // 调试信息
+        logger.debug('Move task request', {
+            projectId,
+            taskId,
+            body: req.body,
+            destinationId,
+            newPosition,
+            targetDestinationId,
+            requestId: req.requestId
+        });
+
+        if (!targetDestinationId) {
+            throw new ValidationError(`Destination ID is required. Use 'destinationId' or 'newPosition' parameter. Received body: ${JSON.stringify(req.body)}`);
+        }
+
+        const options = {
+            generateFiles: generateFiles !== false, // 默认为true
+            tag: req.body.tag || 'main'
+        };
+
+        const result = await req.projectManager.coreAdapter.moveTask(
+            projectId,
+            taskId,
+            targetDestinationId,
+            options
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Task ${taskId} moved to ${destinationId} successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error moving task:', error);
+        next(error);
+    }
+});
+
+// 添加任务依赖
+router.post('/:taskId/dependencies', async (req, res, next) => {
+    try {
+        const { projectId, taskId } = req.params;
+        // 支持两种参数名称：dependsOn (原始) 和 dependsOnTaskId (MCP HTTP)
+        const { dependsOn, dependsOnTaskId } = req.body;
+        const dependencyId = dependsOn || dependsOnTaskId;
+
+        // 调试信息
+        logger.debug('Add dependency request', {
+            projectId,
+            taskId,
+            body: req.body,
+            dependsOn,
+            dependsOnTaskId,
+            dependencyId,
+            requestId: req.requestId
+        });
+
+        if (!dependencyId) {
+            throw new ValidationError(`Dependency ID is required. Use either 'dependsOn' or 'dependsOnTaskId' field. Received body: ${JSON.stringify(req.body)}`);
+        }
+
+        const result = await req.projectManager.coreAdapter.addDependency(
+            projectId,
+            taskId,
+            dependencyId
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Dependency added: Task ${taskId} now depends on ${dependencyId}`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error adding dependency:', error);
+        next(error);
+    }
+});
+
+// 移除任务依赖
+router.delete('/:taskId/dependencies/:dependencyId', async (req, res, next) => {
+    try {
+        const { projectId, taskId, dependencyId } = req.params;
+
+        const result = await req.projectManager.coreAdapter.removeDependency(
+            projectId,
+            taskId,
+            dependencyId
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Dependency removed: Task ${taskId} no longer depends on ${dependencyId}`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error removing dependency:', error);
+        next(error);
+    }
+});
+
+
+
 export default router;
