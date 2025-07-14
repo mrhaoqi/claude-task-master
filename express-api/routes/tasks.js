@@ -406,4 +406,37 @@ router.put('/:taskId/subtasks/:subtaskId', async (req, res, next) => {
     }
 });
 
+// 删除子任务
+router.delete('/:taskId/subtasks/:subtaskId', async (req, res, next) => {
+    try {
+        const { projectId, taskId, subtaskId } = req.params;
+        const { convertToTask = false } = req.query;
+
+        const project = req.project;
+        const options = {
+            convertToTask: convertToTask === 'true',
+            generateFiles: true
+        };
+
+        const result = await req.projectManager.coreAdapter.removeSubtask(
+            projectId,
+            parseInt(taskId),
+            parseInt(subtaskId),
+            options
+        );
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Subtask ${subtaskId} removed from task ${taskId} successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error removing subtask:', error);
+        next(error);
+    }
+});
+
 export default router;
