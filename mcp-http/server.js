@@ -289,7 +289,8 @@ class TaskMasterRemoteMCPServer {
       ...options,
     });
 
-    if (!response.ok) {
+    // 对于422状态码（验证失败），仍然返回响应数据，因为这是预期的业务逻辑
+    if (!response.ok && response.status !== 422) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
     }
@@ -1690,18 +1691,38 @@ class TaskMasterRemoteMCPServer {
   }
 
   async handleValidateDependencies(args) {
-    const { fix = false } = args;
-
+    // Validate dependencies - 只检查，不修复
     const result = await this.callApi('dependencies/validate', {
       method: 'POST',
-      body: JSON.stringify({ fix }),
+      body: JSON.stringify({}),
     });
+
+    const { success, data } = result;
+    const statusIcon = success ? '✅' : '❌';
+    const statusText = success ? 'PASSED' : 'FAILED';
+
+    let responseText = `🔍 Dependencies validation for project ${this.projectId}: ${statusIcon} ${statusText}\n\n`;
+
+    if (data && data.statistics) {
+      responseText += `📊 Statistics:\n`;
+      responseText += `- Tasks checked: ${data.statistics.tasksChecked}\n`;
+      responseText += `- Subtasks checked: ${data.statistics.subtasksChecked}\n`;
+      responseText += `- Issues found: ${data.statistics.issuesFound}\n\n`;
+    }
+
+    if (!success && data && data.issues && data.issues.length > 0) {
+      responseText += `🚨 Issues found:\n`;
+      data.issues.forEach((issue, index) => {
+        responseText += `${index + 1}. [${issue.type.toUpperCase()}] Task ${issue.taskId}: ${issue.message}\n`;
+      });
+      responseText += `\n💡 Use 'fix_dependencies' tool to automatically fix these issues.`;
+    }
 
     return {
       content: [
         {
           type: 'text',
-          text: `🔍 Dependencies validation for project ${this.projectId}:\n\n${JSON.stringify(result.data, null, 2)}`,
+          text: responseText,
         },
       ],
     };
