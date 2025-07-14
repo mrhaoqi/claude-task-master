@@ -507,4 +507,215 @@ router.get('/:projectId/tags', projectValidator, async (req, res, next) => {
     }
 });
 
+// 添加项目标签
+router.post('/:projectId/tags', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { tagName, description, copyFromCurrent = false, copyFromTag, fromBranch = false } = req.body;
+
+        // 验证必需字段
+        if (!tagName && !fromBranch) {
+            throw new ValidationError('Tag name is required when not creating from branch');
+        }
+
+        logger.debug('Add tag request', {
+            projectId,
+            tagName,
+            description,
+            copyFromCurrent,
+            copyFromTag,
+            fromBranch,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.addTag(
+            projectId,
+            {
+                tagName,
+                description,
+                copyFromCurrent,
+                copyFromTag,
+                fromBranch
+            }
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: result.message || 'Tag added successfully',
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error adding tag:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
+// 使用项目标签（切换到指定标签）
+router.post('/:projectId/tags/:tagName/use', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId, tagName } = req.params;
+
+        logger.debug('Use tag request', {
+            projectId,
+            tagName,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.useTag(
+            projectId,
+            tagName
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: result.message || `Switched to tag "${tagName}"`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error using tag:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            tagName: req.params.tagName,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
+// 删除项目标签
+router.delete('/:projectId/tags/:tagName', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId, tagName } = req.params;
+        const { yes = false } = req.body;
+
+        logger.debug('Delete tag request', {
+            projectId,
+            tagName,
+            yes,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.deleteTag(
+            projectId,
+            tagName,
+            { yes }
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: result.message || `Tag "${tagName}" deleted successfully`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error deleting tag:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            tagName: req.params.tagName,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
+// 重命名项目标签
+router.put('/:projectId/tags/:tagName/rename', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId, tagName } = req.params;
+        const { newName } = req.body;
+
+        if (!newName) {
+            throw new ValidationError('New tag name is required');
+        }
+
+        logger.debug('Rename tag request', {
+            projectId,
+            oldName: tagName,
+            newName,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.renameTag(
+            projectId,
+            tagName,
+            newName
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: result.message || `Tag renamed from "${tagName}" to "${newName}"`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error renaming tag:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            oldName: req.params.tagName,
+            newName: req.body.newName,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
+// 复制项目标签
+router.post('/:projectId/tags/:sourceName/copy', projectValidator, async (req, res, next) => {
+    try {
+        const { projectId, sourceName } = req.params;
+        const { targetName, description } = req.body;
+
+        if (!targetName) {
+            throw new ValidationError('Target tag name is required');
+        }
+
+        logger.debug('Copy tag request', {
+            projectId,
+            sourceName,
+            targetName,
+            description,
+            requestId: req.requestId
+        });
+
+        const result = await req.projectManager.coreAdapter.copyTag(
+            projectId,
+            sourceName,
+            targetName,
+            { description }
+        );
+
+        res.json({
+            success: true,
+            data: result.data,
+            message: result.message || `Tag copied from "${sourceName}" to "${targetName}"`,
+            projectId,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        logger.error('Error copying tag:', {
+            error: error.message,
+            projectId: req.params.projectId,
+            sourceName: req.params.sourceName,
+            targetName: req.body.targetName,
+            requestId: req.requestId
+        });
+        next(error);
+    }
+});
+
 export default router;

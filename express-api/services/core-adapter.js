@@ -1520,6 +1520,231 @@ ${prdContent}
     }
 
     /**
+     * 添加项目标签
+     * @param {string} projectId - 项目ID
+     * @param {Object} options - 选项
+     */
+    async addTag(projectId, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { createTag, createTagFromBranch } = await import('../../scripts/modules/task-manager/tag-management.js');
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                }
+            };
+
+            let result;
+
+            if (options.fromBranch) {
+                // 从Git分支创建标签
+                const { getCurrentBranch } = await import('../../scripts/modules/utils/git-utils.js');
+                const currentBranch = await getCurrentBranch(projectPath);
+
+                if (!currentBranch) {
+                    throw new Error('Could not determine current git branch');
+                }
+
+                result = await createTagFromBranch(
+                    tasksPath,
+                    currentBranch,
+                    {
+                        copyFromCurrent: options.copyFromCurrent,
+                        copyFromTag: options.copyFromTag,
+                        description: options.description || `Tag created from git branch "${currentBranch}"`
+                    },
+                    context,
+                    'json' // 使用JSON格式输出
+                );
+            } else {
+                // 创建普通标签
+                if (!options.tagName) {
+                    throw new Error('Tag name is required');
+                }
+
+                result = await createTag(
+                    tasksPath,
+                    options.tagName,
+                    {
+                        copyFromCurrent: options.copyFromCurrent,
+                        copyFromTag: options.copyFromTag,
+                        description: options.description
+                    },
+                    context,
+                    'json' // 使用JSON格式输出
+                );
+            }
+
+            return {
+                success: true,
+                message: `Tag "${result.tagName}" created successfully`,
+                data: result
+            };
+        } catch (error) {
+            this.logger.error('Add tag failed', { error: error.message, projectId });
+            throw error;
+        }
+    }
+
+    /**
+     * 使用项目标签（切换到指定标签）
+     * @param {string} projectId - 项目ID
+     * @param {string} tagName - 标签名称
+     * @param {Object} options - 选项
+     */
+    async useTag(projectId, tagName, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { useTag } = await import('../../scripts/modules/task-manager/tag-management.js');
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                }
+            };
+
+            const result = await useTag(tasksPath, tagName, options, context, 'json');
+
+            return {
+                success: true,
+                message: `Switched to tag "${tagName}"`,
+                data: result
+            };
+        } catch (error) {
+            this.logger.error('Use tag failed', { error: error.message, projectId, tagName });
+            throw error;
+        }
+    }
+
+    /**
+     * 删除项目标签
+     * @param {string} projectId - 项目ID
+     * @param {string} tagName - 标签名称
+     * @param {Object} options - 选项
+     */
+    async deleteTag(projectId, tagName, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { deleteTag } = await import('../../scripts/modules/task-manager/tag-management.js');
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                }
+            };
+
+            const result = await deleteTag(tasksPath, tagName, options, context, 'json');
+
+            return {
+                success: true,
+                message: `Tag "${tagName}" deleted successfully`,
+                data: result
+            };
+        } catch (error) {
+            this.logger.error('Delete tag failed', { error: error.message, projectId, tagName });
+            throw error;
+        }
+    }
+
+    /**
+     * 重命名项目标签
+     * @param {string} projectId - 项目ID
+     * @param {string} oldName - 旧标签名称
+     * @param {string} newName - 新标签名称
+     * @param {Object} options - 选项
+     */
+    async renameTag(projectId, oldName, newName, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { renameTag } = await import('../../scripts/modules/task-manager/tag-management.js');
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                }
+            };
+
+            const result = await renameTag(tasksPath, oldName, newName, options, context, 'json');
+
+            return {
+                success: true,
+                message: `Tag renamed from "${oldName}" to "${newName}"`,
+                data: result
+            };
+        } catch (error) {
+            this.logger.error('Rename tag failed', { error: error.message, projectId, oldName, newName });
+            throw error;
+        }
+    }
+
+    /**
+     * 复制项目标签
+     * @param {string} projectId - 项目ID
+     * @param {string} sourceName - 源标签名称
+     * @param {string} targetName - 目标标签名称
+     * @param {Object} options - 选项
+     */
+    async copyTag(projectId, sourceName, targetName, options = {}) {
+        try {
+            const projectPath = this.getProjectPath(projectId);
+            const tasksPath = this.pathManager.getTasksPath(projectId);
+
+            const { copyTag } = await import('../../scripts/modules/task-manager/tag-management.js');
+
+            const context = {
+                projectRoot: projectPath,
+                mcpLog: {
+                    info: (...args) => this.logger.info(...args),
+                    warn: (...args) => this.logger.warn(...args),
+                    error: (...args) => this.logger.error(...args),
+                    debug: (...args) => this.logger.debug(...args),
+                    success: (...args) => this.logger.info(...args)
+                }
+            };
+
+            const result = await copyTag(tasksPath, sourceName, targetName, options, context, 'json');
+
+            return {
+                success: true,
+                message: `Tag copied from "${sourceName}" to "${targetName}"`,
+                data: result
+            };
+        } catch (error) {
+            this.logger.error('Copy tag failed', { error: error.message, projectId, sourceName, targetName });
+            throw error;
+        }
+    }
+
+    /**
      * 适配现有的generateTaskFiles函数到项目目录
      * @param {string} projectId - 项目ID（而不是projectPath）
      * @param {Object} options - 选项
