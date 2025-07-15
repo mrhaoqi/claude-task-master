@@ -3,11 +3,12 @@
  * 仅用于远程MCP服务器，不修改原始TaskMaster MCP工具
  */
 
-import PrdAnalyzer from '../services/prd-analyzer.js';
-import ScopeChecker from '../services/scope-checker.js';
-import ChangeRequestManager from '../services/change-request-manager.js';
-import TaskEnhancementService from '../services/task-enhancement.js';
-import { createLogger } from '../utils/logger.js';
+import PrdAnalyzer from '../express-api/services/prd-analyzer.js';
+import ScopeChecker from '../express-api/services/scope-checker.js';
+import ChangeRequestManager from '../express-api/services/change-request-manager.js';
+import TaskEnhancementService from '../express-api/services/task-enhancement.js';
+import { createLogger } from '../express-api/utils/logger.js';
+import fs from 'fs/promises';
 
 const logger = createLogger('scope-management-mcp-tools');
 
@@ -217,8 +218,11 @@ export class ScopeManagementMCPTools {
   }
 
   async _analyzePrdScope(args, projectPath) {
-    // 自动查找PRD文档，不再需要prdFilePath参数
+    this.logger.info('Analyzing PRD scope', { projectPath });
+
+    // 查找PRD文档
     const docsDir = `${projectPath}/.taskmaster/docs`;
+    this.logger.info(`Looking for PRD in directory: ${docsDir}`);
 
     // 常见的PRD文件名
     const commonPrdNames = [
@@ -233,17 +237,18 @@ export class ScopeManagementMCPTools {
     ];
 
     let fullPrdPath = null;
-    const fs = require('fs').promises;
 
     // 查找PRD文档
     for (const filename of commonPrdNames) {
       const testPath = `${docsDir}/${filename}`;
+      this.logger.info(`Checking for file: ${testPath}`);
       try {
         await fs.access(testPath);
         fullPrdPath = testPath;
-        this.logger.info(`Found PRD document: ${filename}`, { projectPath });
+        this.logger.info(`Found PRD document: ${filename}`, { projectPath, fullPath: testPath });
         break;
       } catch (error) {
+        this.logger.debug(`File not found: ${testPath}`, { error: error.message });
         // 继续查找下一个文件
       }
     }

@@ -8,7 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import express from 'express';
 import cors from 'cors';
-import ScopeManagementMCPTools from '../express-api/mcp-tools/scope-management-tools.js';
+import ScopeManagementMCPTools from './scope-management-tools.js';
 // Using built-in fetch in Node.js 18+
 
 class TaskMasterRemoteMCPServer {
@@ -222,7 +222,6 @@ class TaskMasterRemoteMCPServer {
       res.json(response);
     } catch (error) {
       console.error(`\n=== MCP Error Details ===`);
-      console.error(`Method: ${mcpRequest?.method}`);
       console.error(`Error:`, error);
       console.error(`Stack:`, error.stack);
       console.error(`========================\n`);
@@ -1177,7 +1176,7 @@ class TaskMasterRemoteMCPServer {
     try {
       // 获取项目路径
       const projectId = this.projectId || this.defaultProjectId;
-      const projectPath = `./projects/${projectId}`;
+      const projectPath = `../projects/${projectId}`;
 
       // 调用范围管理工具
       const result = await this.scopeTools.executeTool(toolName, args, projectPath);
