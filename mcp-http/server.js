@@ -1916,8 +1916,8 @@ class TaskMasterRemoteMCPServer {
         targetDirectories = ideDirectories;
       }
 
-      // 项目根目录路径（MCP服务器运行的目录）
-      const projectRootPath = process.cwd();
+      // 智能检测项目根目录路径
+      const projectRootPath = await this._findProjectRoot();
       console.log(`🔍 Reading IDE config from project root: ${projectRootPath}`);
 
       let fileContents = [];
@@ -1959,6 +1959,50 @@ class TaskMasterRemoteMCPServer {
         ],
       };
     }
+  }
+
+  /**
+   * 智能查找项目根目录
+   * 从当前工作目录开始，向上查找包含IDE配置目录的根目录
+   */
+  async _findProjectRoot() {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    // 候选的IDE配置目录，用于识别项目根目录
+    const ideMarkers = ['.cursor', '.vscode', '.idea', '.taskmaster'];
+
+    let currentDir = process.cwd();
+    const rootDir = path.parse(currentDir).root;
+
+    console.log(`🔍 Starting project root search from: ${currentDir}`);
+
+    // 向上搜索，直到找到包含IDE配置的目录
+    while (currentDir !== rootDir) {
+      console.log(`🔍 Checking directory: ${currentDir}`);
+
+      // 检查当前目录是否包含任何IDE配置目录
+      const foundMarkers = ideMarkers.filter(marker => {
+        const markerPath = path.join(currentDir, marker);
+        const exists = fs.existsSync(markerPath);
+        if (exists) {
+          console.log(`✅ Found IDE marker: ${marker} at ${markerPath}`);
+        }
+        return exists;
+      });
+
+      if (foundMarkers.length > 0) {
+        console.log(`🎯 Project root found: ${currentDir} (markers: ${foundMarkers.join(', ')})`);
+        return currentDir;
+      }
+
+      // 向上一级目录
+      currentDir = path.dirname(currentDir);
+    }
+
+    // 如果没找到，回退到当前工作目录
+    console.warn('⚠️ Could not find project root with IDE config, using current directory');
+    return process.cwd();
   }
 
   // 递归读取目录中的所有文件
