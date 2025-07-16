@@ -13,12 +13,13 @@ import fs from 'fs/promises';
 const logger = createLogger('scope-management-mcp-tools');
 
 export class ScopeManagementMCPTools {
-  constructor() {
+  constructor(projectRoot = null) {
     this.prdAnalyzer = new PrdAnalyzer();
     this.scopeChecker = new ScopeChecker();
     this.crManager = new ChangeRequestManager();
     this.taskEnhancement = new TaskEnhancementService();
     this.logger = logger;
+    this.projectRoot = projectRoot;
   }
 
   /**
@@ -217,11 +218,20 @@ export class ScopeManagementMCPTools {
     }
   }
 
+
+
   async _analyzePrdScope(args, projectPath) {
     this.logger.info('Analyzing PRD scope', { projectPath });
 
-    // 查找PRD文档
-    const docsDir = `${projectPath}/.taskmaster/docs`;
+    // 查找PRD文档 - 使用绝对路径解析
+    const path = await import('path');
+
+    // 如果projectPath是相对路径（如 ../projects/prd-ass-001），直接解析为绝对路径
+    const absoluteProjectPath = path.isAbsolute(projectPath)
+      ? projectPath
+      : path.resolve(process.cwd(), projectPath);
+
+    const docsDir = path.join(absoluteProjectPath, '.taskmaster/docs');
     this.logger.info(`Looking for PRD in directory: ${docsDir}`);
 
     // 常见的PRD文件名
@@ -240,7 +250,7 @@ export class ScopeManagementMCPTools {
 
     // 查找PRD文档
     for (const filename of commonPrdNames) {
-      const testPath = `${docsDir}/${filename}`;
+      const testPath = path.join(docsDir, filename);
       this.logger.info(`Checking for file: ${testPath}`);
       try {
         await fs.access(testPath);
