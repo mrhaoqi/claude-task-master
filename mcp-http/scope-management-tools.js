@@ -13,13 +13,12 @@ import fs from 'fs/promises';
 const logger = createLogger('scope-management-mcp-tools');
 
 export class ScopeManagementMCPTools {
-  constructor(projectRoot = null) {
+  constructor() {
     this.prdAnalyzer = new PrdAnalyzer();
     this.scopeChecker = new ScopeChecker();
     this.crManager = new ChangeRequestManager();
     this.taskEnhancement = new TaskEnhancementService();
     this.logger = logger;
-    this.projectRoot = projectRoot;
   }
 
   /**
@@ -175,13 +174,13 @@ export class ScopeManagementMCPTools {
   /**
    * 执行MCP工具调用
    */
-  async executeTool(toolName, args, projectPath) {
+  async executeTool(toolName, args, projectPath, projectRoot = null) {
     try {
-      this.logger.info('Executing scope management tool', { toolName, projectPath });
+      this.logger.info('Executing scope management tool', { toolName, projectPath, projectRoot });
 
       switch (toolName) {
         case 'analyze_prd_scope':
-          return await this._analyzePrdScope(args, projectPath);
+          return await this._analyzePrdScope(args, projectPath, projectRoot);
         
         case 'check_task_scope':
           return await this._checkTaskScope(args, projectPath);
@@ -220,18 +219,12 @@ export class ScopeManagementMCPTools {
 
 
 
-  async _analyzePrdScope(args, projectPath) {
-    this.logger.info('Analyzing PRD scope', { projectPath });
+  async _analyzePrdScope(args, projectPath, projectRoot) {
+    this.logger.info('Analyzing PRD scope', { projectPath, projectRoot });
 
-    // 查找PRD文档 - 使用绝对路径解析
+    // 查找PRD文档 - 使用传入的项目路径（已经是绝对路径）
     const path = await import('path');
-
-    // 如果projectPath是相对路径（如 ../projects/prd-ass-001），直接解析为绝对路径
-    const absoluteProjectPath = path.isAbsolute(projectPath)
-      ? projectPath
-      : path.resolve(process.cwd(), projectPath);
-
-    const docsDir = path.join(absoluteProjectPath, '.taskmaster/docs');
+    const docsDir = path.join(projectPath, '.taskmaster/docs');
     this.logger.info(`Looking for PRD in directory: ${docsDir}`);
 
     // 常见的PRD文件名

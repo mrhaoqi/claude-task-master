@@ -32,7 +32,7 @@ class TaskMasterRemoteMCPServer {
     // 项目ID将从HTTP头中获取，不再从环境变量
     this.defaultProjectId = process.env.TASKMASTER_PROJECT_ID || 'default';
 
-    // 初始化范围管理工具
+    // 初始化范围管理工具 - 传入项目根目录
     this.scopeTools = new ScopeManagementMCPTools();
 
     this.setupToolHandlers();
@@ -1174,12 +1174,14 @@ class TaskMasterRemoteMCPServer {
    */
   async handleScopeManagementTool(toolName, args) {
     try {
-      // 获取项目路径
+      // 获取项目根目录和项目路径
+      const path = await import('path');
+      const projectRoot = await this._findProjectRoot();
       const projectId = this.projectId || this.defaultProjectId;
-      const projectPath = `../projects/${projectId}`;
+      const projectPath = path.join(projectRoot, 'projects', projectId);
 
       // 调用范围管理工具
-      const result = await this.scopeTools.executeTool(toolName, args, projectPath);
+      const result = await this.scopeTools.executeTool(toolName, args, projectPath, projectRoot);
 
       return {
         content: [
