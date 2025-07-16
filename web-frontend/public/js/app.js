@@ -329,6 +329,13 @@ class TaskMasterApp {
      */
     async loadProjects() {
         console.log('🔄 开始加载项目列表...');
+
+        // 显示加载状态
+        const container = document.getElementById('projectsContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading show">加载中...</div>';
+        }
+
         try {
             const data = await this.apiRequest('/api/projects');
             console.log('✅ 项目数据获取成功:', data);
@@ -337,6 +344,11 @@ class TaskMasterApp {
         } catch (error) {
             console.error('❌ 加载项目失败:', error);
             this.showAlert(`加载项目失败: ${error.message}`, 'error');
+
+            // 显示错误状态
+            if (container) {
+                container.innerHTML = `<p class="text-center text-danger">加载失败: ${error.message}</p>`;
+            }
         }
     }
 
@@ -372,14 +384,21 @@ class TaskMasterApp {
      */
     displayProjects(projects) {
         const container = document.getElementById('projectsContainer');
-        
+
+        if (!container) {
+            console.error('❌ 找不到项目容器元素');
+            return;
+        }
+
+        console.log('📋 显示项目列表，项目数量:', projects?.length || 0);
+
         if (!projects || projects.length === 0) {
             container.innerHTML = '<p class="text-center">暂无项目</p>';
             return;
         }
-        
+
         let html = '<div class="projects-grid">';
-        
+
         projects.forEach(project => {
             html += `
                 <div class="project-card" data-project-id="${project.id}">
@@ -406,9 +425,10 @@ class TaskMasterApp {
                 </div>
             `;
         });
-        
+
         html += '</div>';
         container.innerHTML = html;
+        console.log('✅ 项目列表渲染完成');
     }
 
     /**
@@ -679,7 +699,8 @@ class TaskMasterApp {
         try {
             const data = await this.apiRequest(`/api/projects/${projectId}/tasks`);
             this.displayTasks(data.data.tasks || []);
-            this.showAlert('任务列表加载成功!', 'success');
+            // 移除重复的成功提示，避免与selectProject的提示重复
+            console.log('✅ 任务列表加载成功');
         } catch (error) {
             this.showAlert(`加载任务失败: ${error.message}`, 'error');
         }
@@ -701,164 +722,222 @@ class TaskMasterApp {
         // 当有任务时，收缩任务生成框
         this.collapsePrdTaskGenerationSection();
 
-        // 按状态分组任务 - 完整的6种状态
-        const groupedTasks = {
-            'pending': [],
-            'in-progress': [],
-            'review': [],
-            'done': [],
-            'deferred': [],
-            'cancelled': []
-        };
+        // 存储原始数据
+        this.originalTasks = [...tasks];
 
-        tasks.forEach(task => {
-            const status = task.status || 'pending';
-            // 处理状态名称的兼容性（下划线转连字符）
-            const normalizedStatus = status.replace('_', '-');
-            if (groupedTasks[normalizedStatus]) {
-                groupedTasks[normalizedStatus].push(task);
-            } else if (groupedTasks[status]) {
-                groupedTasks[status].push(task);
-            } else {
-                // 未知状态归类到pending
-                groupedTasks['pending'].push(task);
+        // 渲染DataTables表格
+        this.renderTasksDataTable(tasks);
+    }
+
+    /**
+     * 使用DataTables渲染任务表格
+     */
+    renderTasksDataTable(tasks) {
+        const container = document.getElementById('tasksContainer');
+
+        // 如果表格已经存在，先完全清理
+        if ($.fn.DataTable.isDataTable('#tasksTable')) {
+            try {
+                $('#tasksTable').DataTable().clear().destroy();
+                $('#tasksTable').remove();
+            } catch (e) {
+                console.warn('清理旧表格时出现警告:', e);
+                $('#tasksTable').remove();
             }
-        });
+        }
 
-        let html = '';
+        // 创建表格HTML结构 - 匹配实际数据字段
+        const tableHtml = `
+            <table id="tasksTable" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>标题</th>
+                        <th>状态</th>
+                        <th>优先级</th>
+                        <th>描述</th>
+                        <th>依赖任务</th>
+                        <th>子任务</th>
+                        <th>测试策略</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        `;
 
-        // 状态配置 - 完整的6种状态
-        const statusConfig = {
-            'pending': { title: '📋 待处理', color: '#6c757d' },
-            'in-progress': { title: '🔄 进行中', color: '#007bff' },
-            'review': { title: '👀 审核中', color: '#ffc107' },
-            'done': { title: '✅ 已完成', color: '#28a745' },
-            'deferred': { title: '⏸️ 已延期', color: '#fd7e14' },
-            'cancelled': { title: '❌ 已取消', color: '#dc3545' }
-        };
+        container.innerHTML = tableHtml;
 
-        Object.keys(statusConfig).forEach(status => {
-            const config = statusConfig[status];
-            const statusTasks = groupedTasks[status];
+        // 确保DOM元素已经渲染，然后初始化DataTables
+        setTimeout(() => {
+            try {
+                // 再次检查是否已经初始化
+                if ($.fn.DataTable.isDataTable('#tasksTable')) {
+                    $('#tasksTable').DataTable().destroy();
+                }
 
-            if (statusTasks.length > 0) {
-                html += `
-                    <div class="task-group">
-                        <div class="task-group-header" style="background-color: ${config.color}" onclick="app.toggleTaskGroup('${status}')">
-                            <div class="header-content">
-                                <h4>${config.title}</h4>
-                                <span class="task-count">${statusTasks.length} 个任务</span>
-                            </div>
-                            <span class="toggle-icon" id="toggle-${status}">▼</span>
-                        </div>
-                        <div class="task-list" id="tasks-${status}">
-                `;
-
-                statusTasks.forEach(task => {
-                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
-                    const completedSubtasks = hasSubtasks ? task.subtasks.filter(st => st.status === 'done').length : 0;
-                    const totalSubtasks = hasSubtasks ? task.subtasks.length : 0;
-                    const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
-
-                    const createdDate = task.createdAt ? new Date(task.createdAt).toLocaleDateString('zh-CN') : '';
-                    const updatedDate = task.updatedAt ? new Date(task.updatedAt).toLocaleDateString('zh-CN') : '';
-
-                    html += `
-                        <div class="task-item" data-task-id="${task.id}">
-                            <div class="task-header">
-                                <div class="task-header-left">
-                                    <span class="task-id">#${task.id}</span>
-                                    <span class="task-priority priority-${task.priority || 'medium'}">
-                                        ${this.getPriorityText(task.priority)}
-                                    </span>
-                                    ${task.assignee ? `<span class="task-assignee">👤 ${task.assignee}</span>` : ''}
-                                </div>
-                                <div class="task-header-right">
-                                    ${hasSubtasks ? `<span class="subtask-count">📋 ${completedSubtasks}/${totalSubtasks}</span>` : ''}
-                                    <button class="btn btn-sm btn-outline" onclick="app.toggleTaskDetails('${task.id}')">
-                                        <span id="toggle-task-${task.id}">▼</span> 详情
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="task-title">${task.title}</div>
-                            <div class="task-description">${task.description || ''}</div>
-
-                            ${hasSubtasks ? `
-                                <div class="task-progress">
-                                    <div class="progress-bar">
-                                        <div class="progress-fill" style="width: ${progress}%"></div>
-                                    </div>
-                                    <span class="progress-text">${progress}% 完成</span>
-                                </div>
-                            ` : ''}
-
-                            ${task.tags && task.tags.length > 0 ? `
-                                <div class="task-tags">
-                                    ${task.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
-                                </div>
-                            ` : ''}
-
-                            <div class="task-details" id="task-details-${task.id}" style="display: none;">
-                                <div class="task-meta">
-                                    <div class="meta-row">
-                                        <span class="meta-label">创建时间:</span>
-                                        <span class="meta-value">${createdDate}</span>
-                                    </div>
-                                    <div class="meta-row">
-                                        <span class="meta-label">更新时间:</span>
-                                        <span class="meta-value">${updatedDate}</span>
-                                    </div>
-                                    ${task.estimatedHours ? `
-                                        <div class="meta-row">
-                                            <span class="meta-label">预估工时:</span>
-                                            <span class="meta-value">${task.estimatedHours}小时</span>
-                                        </div>
-                                    ` : ''}
-                                    ${task.actualHours ? `
-                                        <div class="meta-row">
-                                            <span class="meta-label">实际工时:</span>
-                                            <span class="meta-value">${task.actualHours}小时</span>
-                                        </div>
-                                    ` : ''}
-                                    ${task.dependencies && task.dependencies.length > 0 ? `
-                                        <div class="meta-row">
-                                            <span class="meta-label">依赖任务:</span>
-                                            <span class="meta-value">${task.dependencies.map(dep => `#${dep}`).join(', ')}</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
-
-                                ${hasSubtasks ? `
-                                    <div class="subtasks-section">
-                                        <h5>子任务</h5>
-                                        <div class="subtasks-list">
-                                            ${task.subtasks.map(subtask => `
-                                                <div class="subtask-item status-${subtask.status}">
-                                                    <div class="subtask-header">
-                                                        <span class="subtask-status">${this.getStatusIcon(subtask.status)}</span>
-                                                        <span class="subtask-id">#${subtask.id}</span>
-                                                        <span class="subtask-title">${subtask.title}</span>
-                                                    </div>
-                                                    <div class="subtask-description">${subtask.description || ''}</div>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    `;
+                // 初始化DataTables
+                $('#tasksTable').DataTable({
+            data: tasks,
+            responsive: true,
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "全部"]],
+            language: {
+                "sProcessing": "处理中...",
+                "sLengthMenu": "显示 _MENU_ 项结果",
+                "sZeroRecords": "没有匹配结果",
+                "sInfo": "显示第 _START_ 至 _END_ 项结果，共 _TOTAL_ 项",
+                "sInfoEmpty": "显示第 0 至 0 项结果，共 0 项",
+                "sInfoFiltered": "(由 _MAX_ 项结果过滤)",
+                "sInfoPostFix": "",
+                "sSearch": "搜索:",
+                "sUrl": "",
+                "sEmptyTable": "表中数据为空",
+                "sLoadingRecords": "载入中...",
+                "sInfoThousands": ",",
+                "oPaginate": {
+                    "sFirst": "首页",
+                    "sPrevious": "上页",
+                    "sNext": "下页",
+                    "sLast": "末页"
+                },
+                "oAria": {
+                    "sSortAscending": ": 以升序排列此列",
+                    "sSortDescending": ": 以降序排列此列"
+                }
+            },
+            columns: [
+                {
+                    data: 'id',
+                    title: 'ID',
+                    width: '80px',
+                    render: function(data) {
+                        return `<strong>#${data}</strong>`;
+                    }
+                },
+                {
+                    data: 'title',
+                    title: '标题',
+                    render: function(data) {
+                        return `<strong>${data || '未命名任务'}</strong>`;
+                    }
+                },
+                {
+                    data: 'status',
+                    title: '状态',
+                    width: '100px',
+                    render: function(data) {
+                        const labels = {
+                            'pending': '待处理',
+                            'in-progress': '进行中',
+                            'review': '审核中',
+                            'done': '已完成',
+                            'deferred': '已延期',
+                            'cancelled': '已取消'
+                        };
+                        const label = labels[data] || data;
+                        const normalizedStatus = data ? data.replace('_', '-') : 'pending';
+                        return `<span class="task-status-badge task-status-${normalizedStatus}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'priority',
+                    title: '优先级',
+                    width: '80px',
+                    render: function(data) {
+                        const labels = {
+                            'high': '高',
+                            'medium': '中',
+                            'low': '低'
+                        };
+                        const label = labels[data] || '中';
+                        return `<span class="priority-badge priority-${data || 'medium'}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'description',
+                    title: '描述',
+                    width: '300px',
+                    render: function(data) {
+                        if (!data) return '暂无描述';
+                        if (data.length > 100) {
+                            return `<div class="description-truncated" title="${data}">
+                                ${data.substring(0, 100)}...
+                            </div>`;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'dependencies',
+                    title: '依赖任务',
+                    width: '120px',
+                    orderable: false,
+                    render: function(data) {
+                        if (!data || !Array.isArray(data) || data.length === 0) {
+                            return '-';
+                        }
+                        return data.map(dep => `#${dep}`).join(', ');
+                    }
+                },
+                {
+                    data: 'subtasks',
+                    title: '子任务',
+                    width: '100px',
+                    orderable: false,
+                    render: function(data) {
+                        if (!data || !Array.isArray(data) || data.length === 0) {
+                            return '0';
+                        }
+                        const completed = data.filter(st => st.status === 'done').length;
+                        const total = data.length;
+                        return `${completed}/${total}`;
+                    }
+                },
+                {
+                    data: 'testStrategy',
+                    title: '测试策略',
+                    width: '200px',
+                    render: function(data) {
+                        if (!data) return '-';
+                        if (data.length > 60) {
+                            return `<div class="description-truncated" title="${data}">
+                                ${data.substring(0, 60)}...
+                            </div>`;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'id',
+                    title: '操作',
+                    width: '100px',
+                    orderable: false,
+                    render: function(data) {
+                        return `<button class="btn btn-sm btn-primary" onclick="app.viewTaskDetails('${data}')">
+                            查看详情
+                        </button>`;
+                    }
+                }
+            ],
+            order: [[0, 'asc']], // 默认按ID升序排列
+            dom: '<"row"<"col-sm-12"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-3"l><"col-sm-12 col-md-4"i><"col-sm-12 col-md-5"p>>',
+            drawCallback: function() {
+                console.log('Tasks table rendered');
+            }
                 });
 
-                html += `
-                        </div>
-                    </div>
-                `;
+                console.log('✅ 任务表格初始化成功');
+            } catch (error) {
+                console.error('❌ 任务表格初始化失败:', error);
+                container.innerHTML = `<p class="text-center text-danger">表格加载失败: ${error.message}</p>`;
             }
-        });
-
-        container.innerHTML = html;
+        }, 100);
     }
+
+
 
     /**
      * 获取优先级文本
@@ -920,7 +999,12 @@ class TaskMasterApp {
      */
     async viewTaskDetails(taskId) {
         try {
-            const data = await this.apiRequest(`/api/projects/${this.currentProject}/tasks/${taskId}`);
+            const projectId = this.currentProject?.id || this.currentProject;
+            if (!projectId) {
+                this.showAlert('请先选择项目', 'warning');
+                return;
+            }
+            const data = await this.apiRequest(`/api/projects/${projectId}/tasks/${taskId}`);
             this.showTaskDetailsModal(data.data);
         } catch (error) {
             this.showAlert(`获取任务详情失败: ${error.message}`, 'error');
@@ -1336,9 +1420,9 @@ class TaskMasterApp {
                 }
             ],
             order: [[0, 'asc']], // 默认按ID升序排列
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+            dom: '<"row"<"col-sm-12"f>>' +
                  '<"row"<"col-sm-12"tr>>' +
-                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                 '<"row"<"col-sm-12 col-md-3"l><"col-sm-12 col-md-4"i><"col-sm-12 col-md-5"p>>',
             drawCallback: function() {
                 // 表格重绘后的回调，可以在这里添加自定义逻辑
                 console.log('Requirements table rendered');
@@ -1463,104 +1547,201 @@ class TaskMasterApp {
             return;
         }
 
-        // 状态颜色映射
-        const statusColors = {
-            'pending': '#ffc107',
-            'approved': '#28a745',
-            'rejected': '#dc3545',
-            'implemented': '#6f42c1'
-        };
+        // 存储原始数据
+        this.originalCrs = [...crs];
 
-        // 优先级颜色映射
-        const priorityColors = {
-            'high': '#dc3545',
-            'medium': '#ffc107',
-            'low': '#28a745'
-        };
+        // 渲染DataTables表格
+        this.renderCrsDataTable(crs);
+    }
 
-        let html = `
-            <div class="cr-table-container">
-                <h3>📋 变更请求列表</h3>
-                <div class="table-responsive">
-                    <table class="cr-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>标题</th>
-                                <th>类型</th>
-                                <th>状态</th>
-                                <th>优先级</th>
-                                <th>影响</th>
-                                <th>申请人</th>
-                                <th>负责人</th>
-                                <th>预估工时</th>
-                                <th>创建时间</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+    /**
+     * 使用DataTables渲染变更请求表格
+     */
+    renderCrsDataTable(crs) {
+        const container = document.getElementById('changesContainer');
+
+        // 创建表格HTML结构
+        const tableHtml = `
+            <table id="changeRequestsTable" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>标题</th>
+                        <th>类型</th>
+                        <th>状态</th>
+                        <th>优先级</th>
+                        <th>描述</th>
+                        <th>影响</th>
+                        <th>申请人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         `;
 
-        crs.forEach(cr => {
-            const statusColor = statusColors[cr.status] || '#6c757d';
-            const priorityColor = priorityColors[cr.priority] || '#6c757d';
-            const createdDate = new Date(cr.createdAt).toLocaleDateString('zh-CN');
+        container.innerHTML = tableHtml;
 
-            // 类型映射
-            const typeMap = {
-                'feature': '功能',
-                'bug': '缺陷',
-                'enhancement': '增强',
-                'removal': '移除'
-            };
+        // 如果表格已经初始化，先销毁
+        if ($.fn.DataTable.isDataTable('#changeRequestsTable')) {
+            $('#changeRequestsTable').DataTable().destroy();
+        }
 
-            // 状态映射
-            const statusMap = {
-                'pending': '待处理',
-                'approved': '已批准',
-                'rejected': '已拒绝',
-                'implemented': '已实施'
-            };
-
-            // 优先级映射
-            const priorityMap = {
-                'high': '高',
-                'medium': '中',
-                'low': '低'
-            };
-
-            html += `
-                <tr>
-                    <td><strong>${cr.id}</strong></td>
-                    <td>
-                        <div class="cr-title">${cr.title}</div>
-                        <div class="cr-description">${cr.description.substring(0, 50)}${cr.description.length > 50 ? '...' : ''}</div>
-                    </td>
-                    <td><span class="badge badge-secondary">${typeMap[cr.type] || cr.type}</span></td>
-                    <td><span class="badge" style="background-color: ${statusColor}; color: white;">${statusMap[cr.status] || cr.status}</span></td>
-                    <td><span class="badge" style="background-color: ${priorityColor}; color: white;">${priorityMap[cr.priority] || cr.priority}</span></td>
-                    <td><span class="badge badge-info">${priorityMap[cr.impact] || cr.impact}</span></td>
-                    <td>${cr.requestedBy}</td>
-                    <td>${cr.assignedTo || '未分配'}</td>
-                    <td>${cr.estimatedEffort ? cr.estimatedEffort + 'h' : '未估算'}</td>
-                    <td>${createdDate}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="app.viewCrDetails('${cr.id}')">
+        // 初始化DataTables
+        $('#changeRequestsTable').DataTable({
+            data: crs,
+            responsive: true,
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "全部"]],
+            language: {
+                "sProcessing": "处理中...",
+                "sLengthMenu": "显示 _MENU_ 项结果",
+                "sZeroRecords": "没有匹配结果",
+                "sInfo": "显示第 _START_ 至 _END_ 项结果，共 _TOTAL_ 项",
+                "sInfoEmpty": "显示第 0 至 0 项结果，共 0 项",
+                "sInfoFiltered": "(由 _MAX_ 项结果过滤)",
+                "sInfoPostFix": "",
+                "sSearch": "搜索:",
+                "sUrl": "",
+                "sEmptyTable": "表中数据为空",
+                "sLoadingRecords": "载入中...",
+                "sInfoThousands": ",",
+                "oPaginate": {
+                    "sFirst": "首页",
+                    "sPrevious": "上页",
+                    "sNext": "下页",
+                    "sLast": "末页"
+                },
+                "oAria": {
+                    "sSortAscending": ": 以升序排列此列",
+                    "sSortDescending": ": 以降序排列此列"
+                }
+            },
+            columns: [
+                {
+                    data: 'id',
+                    title: 'ID',
+                    width: '120px',
+                    render: function(data) {
+                        return `<strong>${data}</strong>`;
+                    }
+                },
+                {
+                    data: 'title',
+                    title: '标题',
+                    render: function(data) {
+                        return `<strong>${data || '未命名变更请求'}</strong>`;
+                    }
+                },
+                {
+                    data: 'type',
+                    title: '类型',
+                    width: '120px',
+                    render: function(data) {
+                        const labels = {
+                            'scope_expansion': '范围扩展',
+                            'requirement_change': '需求变更',
+                            'task_modification': '任务修改'
+                        };
+                        const label = labels[data] || data;
+                        return `<span class="type-badge type-${data}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'status',
+                    title: '状态',
+                    width: '100px',
+                    render: function(data) {
+                        const labels = {
+                            'pending': '待处理',
+                            'approved': '已批准',
+                            'rejected': '已拒绝',
+                            'implemented': '已实施'
+                        };
+                        const label = labels[data] || data;
+                        return `<span class="status-badge status-${data}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'priority',
+                    title: '优先级',
+                    width: '80px',
+                    render: function(data) {
+                        const labels = {
+                            'high': '高',
+                            'medium': '中',
+                            'low': '低'
+                        };
+                        const label = labels[data] || data;
+                        return `<span class="priority-badge priority-${data}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'description',
+                    title: '描述',
+                    width: '250px',
+                    render: function(data) {
+                        if (!data) return '暂无描述';
+                        if (data.length > 80) {
+                            return `<div class="description-truncated" title="${data}">
+                                ${data.substring(0, 80)}...
+                            </div>`;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'impact',
+                    title: '影响',
+                    width: '200px',
+                    render: function(data) {
+                        if (!data) return '待评估';
+                        if (data.length > 60) {
+                            return `<div class="description-truncated" title="${data}">
+                                ${data.substring(0, 60)}...
+                            </div>`;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'requestedBy',
+                    title: '申请人',
+                    width: '100px',
+                    render: function(data) {
+                        return data || '未知';
+                    }
+                },
+                {
+                    data: 'requestedAt',
+                    title: '创建时间',
+                    width: '120px',
+                    render: function(data) {
+                        if (!data) return '-';
+                        return new Date(data).toLocaleDateString('zh-CN');
+                    }
+                },
+                {
+                    data: 'id',
+                    title: '操作',
+                    width: '100px',
+                    orderable: false,
+                    render: function(data) {
+                        return `<button class="btn btn-sm btn-primary" onclick="app.viewCrDetails('${data}')">
                             查看详情
-                        </button>
-                    </td>
-                </tr>
-            `;
+                        </button>`;
+                    }
+                }
+            ],
+            order: [[8, 'desc']], // 默认按创建时间降序排列
+            dom: '<"row"<"col-sm-12"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-3"l><"col-sm-12 col-md-4"i><"col-sm-12 col-md-5"p>>',
+            drawCallback: function() {
+                console.log('Change requests table rendered');
+            }
         });
-
-        html += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-
-        container.innerHTML = html;
     }
 
     /**
@@ -2052,10 +2233,17 @@ class TaskMasterApp {
      */
     expandPrdTaskGenerationSection() {
         const section = document.getElementById('prdTaskGenerationSection');
+        const toggleIcon = document.getElementById('prdSectionToggleIcon');
+
         if (section) {
             section.style.display = 'block';
             section.classList.remove('collapsed');
             section.classList.add('expanded');
+
+            // 更新图标状态
+            if (toggleIcon) {
+                toggleIcon.textContent = '▼';
+            }
         }
     }
 
@@ -2064,10 +2252,17 @@ class TaskMasterApp {
      */
     collapsePrdTaskGenerationSection() {
         const section = document.getElementById('prdTaskGenerationSection');
+        const toggleIcon = document.getElementById('prdSectionToggleIcon');
+
         if (section) {
             section.style.display = 'block';
             section.classList.remove('expanded');
             section.classList.add('collapsed');
+
+            // 更新图标状态
+            if (toggleIcon) {
+                toggleIcon.textContent = '▶';
+            }
         }
     }
 
@@ -2076,17 +2271,31 @@ class TaskMasterApp {
      */
     togglePrdTaskGenerationSection(event) {
         const section = document.getElementById('prdTaskGenerationSection');
+        const toggleIcon = document.getElementById('prdSectionToggleIcon');
+
         if (!section) return;
 
-        // 如果是收缩状态，则展开
-        if (section.classList.contains('collapsed')) {
-            this.expandPrdTaskGenerationSection();
-            // 阻止事件冒泡，避免在展开后立即触发其他点击事件
-            if (event) {
-                event.stopPropagation();
-            }
+        // 阻止事件冒泡
+        if (event) {
+            event.stopPropagation();
         }
-        // 如果是展开状态，不做任何操作（保持展开）
+
+        // 切换展开/收缩状态
+        if (section.classList.contains('collapsed')) {
+            // 当前是收缩状态，展开它
+            section.classList.remove('collapsed');
+            if (toggleIcon) {
+                toggleIcon.textContent = '▼';
+            }
+            console.log('📋 PRD任务生成区域已展开');
+        } else {
+            // 当前是展开状态，收缩它
+            section.classList.add('collapsed');
+            if (toggleIcon) {
+                toggleIcon.textContent = '▶';
+            }
+            console.log('📋 PRD任务生成区域已收缩');
+        }
     }
 
     /**
