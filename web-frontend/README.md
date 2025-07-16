@@ -74,10 +74,10 @@ X-API-Key: your-api-key
 - `GET /api/projects/{id}` - 获取项目详情
 - `POST /api/projects/{id}/upload-prd` - 上传PRD文档
 
-#### 产品需求 (PRs)
+#### 需求基线 (PRs)
 
-- `GET /api/projects/{projectId}/prs` - 获取项目的产品需求列表
-- `GET /api/projects/{projectId}/prs/{id}` - 获取产品需求详情
+- `GET /api/projects/{projectId}/prs` - 获取项目的需求基线列表
+- `GET /api/projects/{projectId}/prs/{id}` - 获取需求基线详情
 
 #### 变更请求 (CRs)
 
@@ -129,7 +129,7 @@ web-api/
 ├── src/
 │   ├── routes/          # API路由
 │   │   ├── projects.js  # 项目管理路由
-│   │   ├── prs.js       # 产品需求路由
+│   │   ├── prs.js       # 需求基线路由
 │   │   ├── crs.js       # 变更请求路由
 │   │   └── tasks.js     # 任务管理路由
 │   ├── services/        # 业务逻辑服务

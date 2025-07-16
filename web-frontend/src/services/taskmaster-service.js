@@ -396,10 +396,10 @@ class TaskMasterService {
     }
   }
 
-  // ==================== PRODUCT REQUIREMENTS (PR) MANAGEMENT ====================
+  // ==================== REQUIREMENTS BASELINE (PR) MANAGEMENT ====================
 
   /**
-   * Get product requirements list (READ-ONLY)
+   * Get requirements baseline list (READ-ONLY)
    */
   async getProductRequirements(projectId) {
     if (!this.initialized) {
@@ -408,12 +408,28 @@ class TaskMasterService {
 
     try {
       // Try to get from PRD analysis first
-      const result = await makeApiCall(`/api/projects/${projectId}/scope/get-requirements-baseline`);
-      return {
-        success: true,
-        data: result.data || result,
-        mode: 'remote'
-      };
+      const result = await makeApiCall(`/api/projects/${projectId}/scope/requirements-baseline`);
+
+      // 适配需求基线数据格式
+      if (result.data) {
+        const adaptedData = {
+          requirements: result.data.requirements || [],
+          metadata: result.data.metadata || {
+            totalRequirements: 0,
+            lastAnalyzed: new Date().toISOString(),
+            prdVersion: '1.0'
+          }
+        };
+
+        return {
+          success: true,
+          data: adaptedData,
+          mode: 'remote'
+        };
+      }
+
+      // 如果没有数据，fallback
+      return this._getFallbackPrs(projectId);
     } catch (error) {
       console.error(`Failed to get PRs for project ${projectId}:`, error.message);
       return this._getFallbackPrs(projectId);

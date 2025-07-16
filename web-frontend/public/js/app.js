@@ -1135,7 +1135,7 @@ class TaskMasterApp {
     }
 
     /**
-     * 加载产品需求列表
+     * 加载需求基线列表
      */
     async loadPrs(projectId) {
         if (!projectId) {
@@ -1146,45 +1146,286 @@ class TaskMasterApp {
         try {
             const data = await this.apiRequest(`/api/projects/${projectId}/prs`);
             this.displayPrs(data.data.requirements || []);
-            this.showAlert('产品需求列表加载成功!', 'success');
+            this.showAlert('需求基线列表加载成功!', 'success');
         } catch (error) {
-            this.showAlert(`加载产品需求失败: ${error.message}`, 'error');
+            this.showAlert(`加载需求基线失败: ${error.message}`, 'error');
         }
     }
 
     /**
-     * 显示产品需求列表
+     * 显示需求基线列表
      */
     displayPrs(prs) {
         const container = document.getElementById('requirementsContainer');
         if (!container) return;
 
         if (!prs || prs.length === 0) {
-            container.innerHTML = '<p class="text-center">暂无产品需求</p>';
+            container.innerHTML = '<p class="text-center">暂无需求基线</p>';
             return;
         }
 
-        let html = '<div class="prs-list">';
+        // 存储原始数据
+        this.originalPrs = [...prs];
+
+        // 渲染DataTables表格
+        this.renderDataTable(prs);
+    }
+
+    /**
+     * 使用DataTables渲染需求基线表格
+     */
+    renderDataTable(prs) {
+        const container = document.getElementById('requirementsContainer');
+
+        // 创建表格HTML结构
+        const tableHtml = `
+            <table id="requirementsTable" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>标题</th>
+                        <th>描述</th>
+                        <th>分类</th>
+                        <th>优先级</th>
+                        <th>范围</th>
+                        <th>关键词</th>
+                        <th>依赖</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        `;
+
+        container.innerHTML = tableHtml;
+
+        // 如果表格已经初始化，先销毁
+        if ($.fn.DataTable.isDataTable('#requirementsTable')) {
+            $('#requirementsTable').DataTable().destroy();
+        }
+
+        // 初始化DataTables
+        $('#requirementsTable').DataTable({
+            data: prs,
+            responsive: true,
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "全部"]],
+            language: {
+                "sProcessing": "处理中...",
+                "sLengthMenu": "显示 _MENU_ 项结果",
+                "sZeroRecords": "没有匹配结果",
+                "sInfo": "显示第 _START_ 至 _END_ 项结果，共 _TOTAL_ 项",
+                "sInfoEmpty": "显示第 0 至 0 项结果，共 0 项",
+                "sInfoFiltered": "(由 _MAX_ 项结果过滤)",
+                "sInfoPostFix": "",
+                "sSearch": "搜索:",
+                "sUrl": "",
+                "sEmptyTable": "表中数据为空",
+                "sLoadingRecords": "载入中...",
+                "sInfoThousands": ",",
+                "oPaginate": {
+                    "sFirst": "首页",
+                    "sPrevious": "上页",
+                    "sNext": "下页",
+                    "sLast": "末页"
+                },
+                "oAria": {
+                    "sSortAscending": ": 以升序排列此列",
+                    "sSortDescending": ": 以降序排列此列"
+                }
+            },
+            columns: [
+                {
+                    data: 'id',
+                    title: 'ID',
+                    width: '80px',
+                    render: function(data) {
+                        return `<strong>${data}</strong>`;
+                    }
+                },
+                {
+                    data: 'title',
+                    title: '标题',
+                    render: function(data) {
+                        return `<strong>${data || '未命名需求'}</strong>`;
+                    }
+                },
+                {
+                    data: 'description',
+                    title: '描述',
+                    width: '300px',
+                    render: function(data) {
+                        if (!data) return '暂无描述';
+                        if (data.length > 100) {
+                            return `<div class="description-truncated" title="${data}">
+                                ${data.substring(0, 100)}...
+                            </div>`;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'category',
+                    title: '分类',
+                    width: '100px',
+                    render: function(data) {
+                        const labels = {
+                            'functional': '功能需求',
+                            'technical': '技术需求',
+                            'business': '业务需求',
+                            'non-functional': '非功能需求'
+                        };
+                        const label = labels[data] || data;
+                        return `<span class="category-badge category-${data}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'priority',
+                    title: '优先级',
+                    width: '80px',
+                    render: function(data) {
+                        const labels = {
+                            'high': '高',
+                            'medium': '中',
+                            'low': '低'
+                        };
+                        const label = labels[data] || data;
+                        return `<span class="priority-badge priority-${data}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'scope',
+                    title: '范围',
+                    width: '80px',
+                    render: function(data) {
+                        const labels = {
+                            'core': '核心',
+                            'extended': '扩展',
+                            'optional': '可选'
+                        };
+                        const label = labels[data] || data;
+                        return `<span class="scope-badge scope-${data}">${label}</span>`;
+                    }
+                },
+                {
+                    data: 'keywords',
+                    title: '关键词',
+                    width: '150px',
+                    orderable: false,
+                    render: function(data) {
+                        if (!data || !Array.isArray(data) || data.length === 0) {
+                            return '-';
+                        }
+                        return data.map(keyword =>
+                            `<span class="keyword-tag">${keyword}</span>`
+                        ).join(' ');
+                    }
+                },
+                {
+                    data: 'dependencies',
+                    title: '依赖',
+                    width: '120px',
+                    orderable: false,
+                    render: function(data) {
+                        if (!data || !Array.isArray(data) || data.length === 0) {
+                            return '-';
+                        }
+                        return data.map(dep =>
+                            `<span class="dependency-tag">${dep}</span>`
+                        ).join(' ');
+                    }
+                }
+            ],
+            order: [[0, 'asc']], // 默认按ID升序排列
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            drawCallback: function() {
+                // 表格重绘后的回调，可以在这里添加自定义逻辑
+                console.log('Requirements table rendered');
+            }
+        });
+    }
+
+    /**
+     * 计算需求统计信息
+     */
+    calculateRequirementsStats(prs) {
+        const stats = {
+            total: prs.length,
+            core: 0,
+            extended: 0,
+            optional: 0,
+            high: 0,
+            medium: 0,
+            low: 0
+        };
 
         prs.forEach(pr => {
-            html += `
-                <div class="pr-item">
-                    <div class="pr-header">
-                        <h4>${pr.title || `需求 #${pr.id}`}</h4>
-                        <span class="pr-id">#${pr.id}</span>
-                    </div>
-                    <div class="pr-description">
-                        ${pr.description || '暂无描述'}
-                    </div>
-                    <div class="pr-actions">
-                        <!-- PR操作按钮已移除 -->
-                    </div>
-                </div>
-            `;
+            // 范围统计
+            if (pr.scope === 'core') stats.core++;
+            else if (pr.scope === 'extended') stats.extended++;
+            else if (pr.scope === 'optional') stats.optional++;
+
+            // 优先级统计
+            if (pr.priority === 'high') stats.high++;
+            else if (pr.priority === 'medium') stats.medium++;
+            else if (pr.priority === 'low') stats.low++;
         });
 
-        html += '</div>';
-        container.innerHTML = html;
+        return stats;
+    }
+
+    /**
+     * 获取分类标签
+     */
+    getCategoryLabel(category) {
+        const labels = {
+            'functional': '功能需求',
+            'technical': '技术需求',
+            'business': '业务需求',
+            'non-functional': '非功能需求'
+        };
+        return labels[category] || category;
+    }
+
+    /**
+     * 获取优先级标签
+     */
+    getPriorityLabel(priority) {
+        const labels = {
+            'high': '高',
+            'medium': '中',
+            'low': '低'
+        };
+        return labels[priority] || priority;
+    }
+
+    /**
+     * 获取范围标签
+     */
+    getScopeLabel(scope) {
+        const labels = {
+            'core': '核心',
+            'extended': '扩展',
+            'optional': '可选'
+        };
+        return labels[scope] || scope;
+    }
+
+    /**
+     * 切换描述展开/收缩
+     */
+    toggleDescription(reqId) {
+        const descElement = document.getElementById(`desc-${reqId}`);
+        const toggleElement = descElement.nextElementSibling;
+
+        if (descElement.classList.contains('description-full')) {
+            descElement.classList.remove('description-full');
+            toggleElement.textContent = '展开';
+        } else {
+            descElement.classList.add('description-full');
+            toggleElement.textContent = '收缩';
+        }
     }
 
     /**

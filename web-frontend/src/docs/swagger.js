@@ -376,8 +376,8 @@ const options = {
         description: 'Project management operations - create, list, and manage projects'
       },
       {
-        name: 'Product Requirements',
-        description: 'Product Requirements (PRs) management - view and manage product specifications'
+        name: 'Requirements Baseline',
+        description: 'Requirements Baseline (PRs) management - view and manage requirements baseline'
       },
       {
         name: 'Change Requests',

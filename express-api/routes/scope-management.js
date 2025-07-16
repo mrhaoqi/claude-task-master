@@ -9,10 +9,14 @@ import ScopeChecker from '../services/scope-checker.js';
 import ChangeRequestManager from '../services/change-request-manager.js';
 import TaskEnhancementService from '../services/task-enhancement.js';
 import { ValidationError } from '../middleware/error-handler.js';
+import { projectValidator } from '../middleware/project-validator.js';
 import { createLogger } from '../utils/logger.js';
 
 const router = express.Router({ mergeParams: true });
 const logger = createLogger('scope-management-routes');
+
+// 项目验证中间件
+router.use(projectValidator);
 
 const prdAnalyzer = new PrdAnalyzer();
 const scopeChecker = new ScopeChecker();
@@ -55,6 +59,38 @@ router.post('/analyze-prd', async (req, res, next) => {
  * 获取PRD需求基线
  */
 router.get('/requirements-baseline', async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const project = req.project;
+
+    const baseline = await prdAnalyzer.getRequirementsBaseline(project.path);
+
+    if (!baseline) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No PRD baseline found',
+        projectId,
+        requestId: req.requestId
+      });
+    }
+
+    res.json({
+      success: true,
+      data: baseline,
+      projectId,
+      requestId: req.requestId
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * 获取PRD需求基线 (别名路由，保持向后兼容)
+ */
+router.get('/get-requirements-baseline', async (req, res, next) => {
   try {
     const { projectId } = req.params;
     const project = req.project;

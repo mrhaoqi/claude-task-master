@@ -1,7 +1,7 @@
 /**
  * routes/prs.js
- * Product Requirements (PR) API routes - READ-ONLY operations
- * Manages product requirements extracted from PRD documents
+ * Requirements Baseline (PR) API routes - READ-ONLY operations
+ * Manages requirements baseline extracted from PRD documents
  */
 
 import express from 'express';
@@ -20,14 +20,14 @@ const getPrsSchema = z.object({
   offset: z.number().min(0).optional()
 });
 
-// ==================== PRODUCT REQUIREMENTS ROUTES ====================
+// ==================== REQUIREMENTS BASELINE ROUTES ====================
 
 /**
  * @swagger
  * /api/projects/{projectId}/prs:
  *   get:
- *     summary: 获取产品需求列表
- *     tags: [Product Requirements]
+ *     summary: 获取需求基线列表
+ *     tags: [Requirements Baseline]
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -40,7 +40,7 @@ const getPrsSchema = z.object({
  *         schema:
  *           type: string
  *           enum: [core, extended, optional]
- *         description: 需求范围筛选
+ *         description: 基线需求范围筛选
  *       - in: query
  *         name: priority
  *         schema:
@@ -161,8 +161,8 @@ router.get('/', async (req, res) => {
  * @swagger
  * /api/projects/{projectId}/prs/{reqId}:
  *   get:
- *     summary: 获取特定产品需求详情
- *     tags: [Product Requirements]
+ *     summary: 获取特定需求基线详情
+ *     tags: [Requirements Baseline]
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -178,7 +178,7 @@ router.get('/', async (req, res) => {
  *         description: 需求ID
  *     responses:
  *       200:
- *         description: 产品需求详情获取成功
+ *         description: 需求基线详情获取成功
  *         content:
  *           application/json:
  *             schema:
@@ -200,10 +200,10 @@ router.get('/:reqId', async (req, res) => {
       mode: result.mode
     });
   } catch (error) {
-    logger.error(`获取产品需求详情失败 (项目: ${req.params.projectId}, 需求: ${req.params.reqId}):`, error);
+    logger.error(`获取需求基线详情失败 (项目: ${req.params.projectId}, 需求: ${req.params.reqId}):`, error);
     res.status(500).json({
       success: false,
-      error: '获取产品需求详情失败',
+      error: '获取需求基线详情失败',
       details: error.message
     });
   }
@@ -213,8 +213,8 @@ router.get('/:reqId', async (req, res) => {
  * @swagger
  * /api/projects/{projectId}/prs/stats:
  *   get:
- *     summary: 获取产品需求统计信息
- *     tags: [Product Requirements]
+ *     summary: 获取需求基线统计信息
+ *     tags: [Requirements Baseline]
  *     parameters:
  *       - in: path
  *         name: projectId
@@ -224,7 +224,7 @@ router.get('/:reqId', async (req, res) => {
  *         description: 项目ID
  *     responses:
  *       200:
- *         description: 产品需求统计信息获取成功
+ *         description: 需求基线统计信息获取成功
  */
 router.get('/stats', async (req, res) => {
   try {
@@ -237,10 +237,10 @@ router.get('/stats', async (req, res) => {
       mode: result.mode
     });
   } catch (error) {
-    logger.error(`获取产品需求统计失败 (项目: ${req.params.projectId}):`, error);
+    logger.error(`获取需求基线统计失败 (项目: ${req.params.projectId}):`, error);
     res.status(500).json({
       success: false,
-      error: '获取产品需求统计失败',
+      error: '获取需求基线统计失败',
       details: error.message
     });
   }

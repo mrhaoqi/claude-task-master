@@ -86,14 +86,14 @@ curl -X POST "${API_BASE_URL}/api/projects/ecommerce-platform/upload-prd" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${API_KEY}" \
   -d '{
-    "content": "# 电商平台产品需求文档\n\n## 1. 项目概述\n电商平台需要支持...",
+    "content": "# 电商平台需求基线文档\n\n## 1. 项目概述\n电商平台需要支持...",
     "title": "电商平台PRD v1.0"
   }'
 ```
 
-## 产品需求 (PRs) 管理示例
+## 需求基线 (PRs) 管理示例
 
-### 1. 获取项目的产品需求列表
+### 1. 获取项目的需求基线列表
 
 ```bash
 curl -X GET "${API_BASE_URL}/api/projects/ecommerce-platform/prs" \
@@ -119,7 +119,7 @@ curl -X GET "${API_BASE_URL}/api/projects/ecommerce-platform/prs" \
 }
 ```
 
-### 2. 获取产品需求详情
+### 2. 获取需求基线详情
 
 ```bash
 curl -X GET "${API_BASE_URL}/api/projects/ecommerce-platform/prs/pr-001" \
