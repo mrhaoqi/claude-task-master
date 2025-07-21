@@ -26,7 +26,8 @@ class TaskMasterRemoteMCPServer {
     );
 
     // 从环境变量获取配置
-    this.apiUrl = process.env.TASKMASTER_API_URL || 'http://localhost:3000';
+    this.host = process.env.HOST || 'localhost';
+    this.apiUrl = process.env.TASKMASTER_API_URL || `http://${this.host}:3000`;
     this.port = process.env.MCP_PORT || 3001;
 
     // 项目ID将从HTTP头中获取，不再从环境变量
@@ -2183,10 +2184,10 @@ class TaskMasterRemoteMCPServer {
 
     if (httpMode) {
       // HTTP服务器模式
-      this.app.listen(this.port, () => {
-        console.log(`🚀 TaskMaster MCP HTTP server running on port ${this.port}`);
-        console.log(`📡 Health check: http://localhost:${this.port}/health`);
-        console.log(`🔗 MCP endpoint: http://localhost:${this.port}/mcp`);
+      this.app.listen(this.port, this.host, () => {
+        console.log(`🚀 TaskMaster MCP HTTP server running on ${this.host}:${this.port}`);
+        console.log(`📡 Health check: http://${this.host}:${this.port}/health`);
+        console.log(`🔗 MCP endpoint: http://${this.host}:${this.port}/mcp`);
       });
     } else {
       // 传统stdio模式

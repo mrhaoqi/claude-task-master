@@ -418,15 +418,16 @@ app.use((error, req, res, next) => {
 
 // ========== 启动服务器 ==========
 const PORT = process.env.PORT || 3002;  // 改为3002避免冲突
-app.listen(PORT, '0.0.0.0', () => {
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
   log.info('Task Master Web API server started', {
     port: PORT,
-    host: '0.0.0.0',
+    host: HOST,
     environment: 'development'
   });
   console.log(`\n🚀 Task Master Web API 服务器启动成功!`);
-  console.log(`📍 Web界面: http://localhost:${PORT}/`);
-  console.log(`📍 健康检查: http://localhost:${PORT}/health`);
-  console.log(`🔍 调试信息: http://localhost:${PORT}/debug/routes`);
-  console.log(`📚 完整功能列表: curl http://localhost:${PORT}/debug/routes`);
-}); 
+  console.log(`📍 Web界面: http://${HOST}:${PORT}/`);
+  console.log(`📍 健康检查: http://${HOST}:${PORT}/health`);
+  console.log(`🔍 调试信息: http://${HOST}:${PORT}/debug/routes`);
+  console.log(`📚 完整功能列表: curl http://${HOST}:${PORT}/debug/routes`);
+});
