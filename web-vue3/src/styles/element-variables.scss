@@ -1,0 +1,108 @@
+// Element Plus 主题定制 - 扁平化设计风格
+// 参考：https://element-plus.org/zh-CN/guide/theming.html
+
+// 主色调 - 使用扁平化设计的蓝色系
+$--el-color-primary: #3498db;
+$--el-color-primary-light-3: #5dade2;
+$--el-color-primary-light-5: #85c1e9;
+$--el-color-primary-light-7: #aed6f1;
+$--el-color-primary-light-8: #d6eaf8;
+$--el-color-primary-light-9: #ebf5fb;
+$--el-color-primary-dark-2: #2980b9;
+
+// 成功色 - 扁平化绿色
+$--el-color-success: #27ae60;
+$--el-color-success-light-3: #52c882;
+$--el-color-success-light-5: #7dd3a0;
+$--el-color-success-light-7: #a9dfbd;
+$--el-color-success-light-8: #c7ebdb;
+$--el-color-success-light-9: #e8f8f5;
+$--el-color-success-dark-2: #229954;
+
+// 警告色 - 扁平化橙色
+$--el-color-warning: #f39c12;
+$--el-color-warning-light-3: #f5b041;
+$--el-color-warning-light-5: #f7c572;
+$--el-color-warning-light-7: #f9d9a3;
+$--el-color-warning-light-8: #fbecd4;
+$--el-color-warning-light-9: #fdf2e9;
+$--el-color-warning-dark-2: #d68910;
+
+// 危险色 - 扁平化红色
+$--el-color-danger: #e74c3c;
+$--el-color-danger-light-3: #ec7063;
+$--el-color-danger-light-5: #f1948a;
+$--el-color-danger-light-7: #f5b7b1;
+$--el-color-danger-light-8: #fadbd8;
+$--el-color-danger-light-9: #fdedec;
+$--el-color-danger-dark-2: #c0392b;
+
+// 信息色 - 扁平化灰色
+$--el-color-info: #95a5a6;
+$--el-color-info-light-3: #aab7b8;
+$--el-color-info-light-5: #bfc9ca;
+$--el-color-info-light-7: #d5dbdb;
+$--el-color-info-light-8: #eaeded;
+$--el-color-info-light-9: #f4f6f6;
+$--el-color-info-dark-2: #7f8c8d;
+
+// 背景色 - 扁平化设计
+$--el-bg-color: #ffffff;
+$--el-bg-color-page: #f8f9fa;
+$--el-bg-color-overlay: #ffffff;
+
+// 文本色
+$--el-text-color-primary: #2c3e50;
+$--el-text-color-regular: #34495e;
+$--el-text-color-secondary: #5d6d7e;
+$--el-text-color-placeholder: #85929e;
+$--el-text-color-disabled: #bdc3c7;
+
+// 边框色 - 扁平化，减少阴影效果
+$--el-border-color: #d5dbdb;
+$--el-border-color-light: #e8edee;
+$--el-border-color-lighter: #f4f6f6;
+$--el-border-color-extra-light: #fafbfc;
+$--el-border-color-dark: #aab7b8;
+$--el-border-color-darker: #85929e;
+
+// 填充色
+$--el-fill-color: #f4f6f6;
+$--el-fill-color-light: #f8f9fa;
+$--el-fill-color-lighter: #fafbfc;
+$--el-fill-color-extra-light: #fdfefe;
+$--el-fill-color-dark: #eaeded;
+$--el-fill-color-darker: #d5dbdb;
+$--el-fill-color-blank: #ffffff;
+
+// 字体
+$--el-font-family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"';
+
+// 圆角 - 扁平化设计，减少圆角
+$--el-border-radius-base: 3px;
+$--el-border-radius-small: 2px;
+$--el-border-radius-round: 20px;
+$--el-border-radius-circle: 100%;
+
+// 阴影 - 扁平化设计，减少阴影效果
+$--el-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+$--el-box-shadow-light: 0 1px 3px rgba(0, 0, 0, 0.06);
+$--el-box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.08);
+$--el-box-shadow-dark: 0 4px 8px rgba(0, 0, 0, 0.12);
+
+// 组件特定样式
+// 按钮
+$--el-button-font-weight: 500;
+$--el-button-border-color: transparent;
+$--el-button-bg-color: transparent;
+$--el-button-text-color: $--el-text-color-regular;
+
+// 表格
+$--el-table-border-color: $--el-border-color-lighter;
+$--el-table-border: 1px solid $--el-table-border-color;
+$--el-table-text-color: $--el-text-color-regular;
+$--el-table-header-text-color: $--el-text-color-primary;
+$--el-table-header-bg-color: $--el-bg-color-page;
+
+// 导入Element Plus样式 - 使用简化的方式
+@import 'element-plus/theme-chalk/src/index.scss';

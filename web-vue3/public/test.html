@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基础测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .test-item {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #409EFF;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #66b1ff;
+        }
+        .success {
+            color: #67C23A;
+            font-weight: bold;
+        }
+        .error {
+            color: #F56C6C;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TaskMaster Vue3 基础测试页面</h1>
+        
+        <div class="test-item">
+            <h3>1. 基础HTML渲染测试</h3>
+            <p class="success">✅ 如果你能看到这个页面，说明基础HTML渲染正常</p>
+        </div>
+        
+        <div class="test-item">
+            <h3>2. CSS样式测试</h3>
+            <p class="success">✅ 如果页面有样式，说明CSS加载正常</p>
+        </div>
+        
+        <div class="test-item">
+            <h3>3. JavaScript测试</h3>
+            <p id="js-test" class="error">❌ JavaScript未执行</p>
+            <button onclick="testJS()">点击测试JavaScript</button>
+        </div>
+        
+        <div class="test-item">
+            <h3>4. 网络连接测试</h3>
+            <p id="network-test">⏳ 测试中...</p>
+            <button onclick="testNetwork()">测试网络连接</button>
+        </div>
+        
+        <div class="test-item">
+            <h3>5. 访问链接</h3>
+            <p>
+                <a href="/" target="_blank">Vue3应用首页</a> |
+                <a href="/projects" target="_blank">项目管理</a> |
+                <a href="/tasks" target="_blank">任务管理</a> |
+                <a href="/prd" target="_blank">PRD管理</a>
+            </p>
+        </div>
+        
+        <div class="test-item">
+            <h3>6. 开发服务器信息</h3>
+            <ul>
+                <li>端口: 3003</li>
+                <li>URL: http://localhost:3003/</li>
+                <li>测试页面: http://localhost:3003/test.html</li>
+                <li>Vue DevTools: http://localhost:3003/__devtools__/</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript测试
+        function testJS() {
+            document.getElementById('js-test').innerHTML = '<span class="success">✅ JavaScript执行正常</span>';
+            document.getElementById('js-test').className = 'success';
+        }
+        
+        // 网络连接测试
+        async function testNetwork() {
+            const testElement = document.getElementById('network-test');
+            testElement.innerHTML = '⏳ 测试API连接...';
+            
+            try {
+                const response = await fetch('/api/health');
+                if (response.ok) {
+                    testElement.innerHTML = '<span class="success">✅ API连接正常</span>';
+                } else {
+                    testElement.innerHTML = '<span class="error">❌ API连接失败 (状态码: ' + response.status + ')</span>';
+                }
+            } catch (error) {
+                testElement.innerHTML = '<span class="error">❌ 网络连接失败: ' + error.message + '</span>';
+            }
+        }
+        
+        // 页面加载完成后自动执行JavaScript测试
+        window.onload = function() {
+            testJS();
+            testNetwork();
+        };
+    </script>
+</body>
+</html>
