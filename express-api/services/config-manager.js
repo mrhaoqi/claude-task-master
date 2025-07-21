@@ -194,7 +194,7 @@ class ConfigManager {
 
       // 尝试加载项目特定配置
       const projectConfigPath = path.join(
-        __dirname, '../../projects', projectId, '.taskmaster', 'project.json'
+        __dirname, '../../../projects', projectId, '.taskmaster', 'project.json'
       );
       
       try {

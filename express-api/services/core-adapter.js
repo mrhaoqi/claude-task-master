@@ -14,7 +14,7 @@ import { generateObjectService } from '../../scripts/modules/ai-services-unified
 class ProjectPathManager {
     constructor(projectsDir = null) {
         // 使用传入的项目目录，或者从环境变量获取，或者使用默认值
-        const configuredProjectsDir = projectsDir || process.env.PROJECTS_DIR || '../projects';
+        const configuredProjectsDir = projectsDir || process.env.PROJECTS_DIR || './projects';
         this.projectsRoot = path.resolve(configuredProjectsDir);
     }
 

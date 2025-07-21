@@ -42,7 +42,7 @@ async function main() {
         const config = {
             port: parseInt(process.env.PORT) || 3000,
             host: process.env.HOST || '0.0.0.0',
-            projectsDir: process.env.PROJECTS_DIR || '../projects',
+            projectsDir: process.env.PROJECTS_DIR || './projects',
             nodeEnv: process.env.NODE_ENV || 'development',
             logLevel: process.env.LOG_LEVEL || 'info',
             debug: process.env.DEBUG === 'true'
