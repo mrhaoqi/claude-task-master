@@ -16,7 +16,8 @@ const __dirname = dirname(__filename);
 // Configuration
 const PROJECTS_DIR = process.env.PROJECTS_DIR || join(__dirname, '../../../projects');
 const USE_REMOTE_SERVER = process.env.USE_REMOTE_SERVER === 'true';
-const SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:3000';
+const API_HOST = process.env.HOST || 'localhost';
+const SERVER_BASE_URL = process.env.SERVER_BASE_URL || `http://${API_HOST}:3000`;
 
 /**
  * Helper functions for API calls and data management

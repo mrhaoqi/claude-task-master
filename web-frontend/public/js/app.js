@@ -29,8 +29,10 @@ class TaskMasterApp {
      * 加载配置
      */
     loadConfig() {
-        // 配置指向Express API服务
-        this.config.baseUrl = 'http://localhost:3000';
+        // 根据当前页面的主机地址动态设置API URL
+        const currentHost = window.location.hostname;
+        const apiHost = currentHost === 'localhost' || currentHost === '127.0.0.1' ? 'localhost' : currentHost;
+        this.config.baseUrl = `http://${apiHost}:3000`;
         console.log('🔧 配置加载完成:', this.config);
     }
 

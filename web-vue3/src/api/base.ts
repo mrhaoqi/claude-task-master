@@ -226,8 +226,15 @@ export class BaseHttpClient implements HttpClient {
   }
 }
 
+// 动态获取API基础URL
+const getApiBaseUrl = (): string => {
+  const currentHost = window.location.hostname
+  const apiHost = currentHost === 'localhost' || currentHost === '127.0.0.1' ? 'localhost' : currentHost
+  return `http://${apiHost}:3000/api`
+}
+
 // 创建默认的HTTP客户端实例（单例模式）
-export const httpClient = new BaseHttpClient('http://localhost:3000/api')
+export const httpClient = new BaseHttpClient(getApiBaseUrl())
 
 // 添加默认的响应拦截器
 httpClient.addResponseInterceptor({
