@@ -17,11 +17,11 @@
       "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
     },
     "fallback": {
-      "provider": "openai-compatible",
-      "modelId": "deepseek-r1-0528",
+      "provider": "openrouter",
+      "modelId": "deepseek/deepseek-r1-0528:free",
       "maxTokens": 8000,
       "temperature": 0.2,
-      "model": "deepseek-r1-0528",
+      "model": "deepseek/deepseek-r1-0528:free",
       "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
     }
   },
